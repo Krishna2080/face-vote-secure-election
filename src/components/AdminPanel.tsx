@@ -1,34 +1,14 @@
-
 import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
 import FaceCapture from './FaceCapture';
 
 const AdminPanel = () => {
-  const { voters, candidates, addVoter, addCandidate, deleteCandidate } = useVoting();
-  const [isRegistering, setIsRegistering] = useState(false);
+  const { voters, candidates, addCandidate, deleteCandidate } = useVoting();
   const [isAddingCandidate, setIsAddingCandidate] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: ''
-  });
   const [candidateFormData, setCandidateFormData] = useState({
     name: '',
     party: ''
   });
-
-  const handleRegisterVoter = async (faceEmbedding: number[]) => {
-    if (formData.name && formData.email && faceEmbedding.length > 0) {
-      addVoter({
-        name: formData.name,
-        email: formData.email,
-        faceEmbedding
-      });
-      
-      setFormData({ name: '', email: '' });
-      setIsRegistering(false);
-      alert('Voter registered successfully!');
-    }
-  };
 
   const handleAddCandidate = () => {
     if (candidateFormData.name && candidateFormData.party) {
@@ -56,7 +36,7 @@ const AdminPanel = () => {
       {/* Header */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Control Panel</h2>
-        <p className="text-gray-600">Manage voter registration, candidates, and system settings</p>
+        <p className="text-gray-600">Manage candidates and monitor election statistics</p>
       </div>
 
       {/* Quick Stats */}
@@ -202,68 +182,13 @@ const AdminPanel = () => {
                   title="Delete Candidate"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9zM4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 012 0v3a1 1 0 11-2 0V9zm4 0a1 1 0 012 0v3a1 1 0 11-2 0V9z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M9 2a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
                 </button>
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Voter Registration */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Voter Registration</h3>
-        
-        {!isRegistering ? (
-          <button
-            onClick={() => setIsRegistering(true)}
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-            </svg>
-            Register New Voter
-          </button>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter voter's full name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter voter's email"
-                />
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-medium text-gray-900 mb-3">Face Registration</h4>
-              <FaceCapture
-                onCapture={handleRegisterVoter}
-                onCancel={() => setIsRegistering(false)}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Registered Voters List */}

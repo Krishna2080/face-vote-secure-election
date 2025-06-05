@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import AdminAuth from '../components/AdminAuth';
 import AdminPanel from '../components/AdminPanel';
 import VoterAuth from '../components/VoterAuth';
 import VotingInterface from '../components/VotingInterface';
@@ -8,6 +9,19 @@ import { VotingProvider } from '../contexts/VotingContext';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<'auth' | 'admin' | 'vote' | 'results'>('auth');
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+
+  const handleAdminAccess = () => {
+    if (isAdminAuthenticated) {
+      setCurrentView('admin');
+    } else {
+      setCurrentView('admin');
+    }
+  };
+
+  const handleAdminAuthenticated = () => {
+    setIsAdminAuthenticated(true);
+  };
 
   return (
     <VotingProvider>
@@ -37,14 +51,14 @@ const Index = () => {
                       : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                   }`}
                 >
-                  Voter Login
+                  Voter Portal
                 </button>
                 <button
-                  onClick={() => setCurrentView('admin')}
+                  onClick={handleAdminAccess}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                     currentView === 'admin' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                      ? 'bg-red-600 text-white' 
+                      : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
                   }`}
                 >
                   Admin Panel
@@ -67,7 +81,11 @@ const Index = () => {
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 py-8">
           {currentView === 'auth' && <VoterAuth onAuthenticated={() => setCurrentView('vote')} />}
-          {currentView === 'admin' && <AdminPanel />}
+          {currentView === 'admin' && (
+            !isAdminAuthenticated ? 
+              <AdminAuth onAuthenticated={handleAdminAuthenticated} /> : 
+              <AdminPanel />
+          )}
           {currentView === 'vote' && <VotingInterface onVoteComplete={() => setCurrentView('results')} />}
           {currentView === 'results' && <ResultsDashboard />}
         </main>
