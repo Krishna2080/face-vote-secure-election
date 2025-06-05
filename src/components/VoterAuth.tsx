@@ -1,33 +1,42 @@
+
 import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
 import FaceCapture from './FaceCapture';
 import VoterRegistration from './VoterRegistration';
+import { faceRecognitionApi } from '../services/faceRecognitionApi';
 
 interface VoterAuthProps {
   onAuthenticated: () => void;
 }
 
 const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
-  const { authenticateVoter, setCurrentVoter } = useVoting();
+  const { setCurrentVoter, voters } = useVoting();
   const [currentMode, setCurrentMode] = useState<'select' | 'register' | 'authenticate'>('select');
   const [isScanning, setIsScanning] = useState(false);
   const [authStatus, setAuthStatus] = useState<'idle' | 'success' | 'failed'>('idle');
 
-  const handleFaceCapture = async (faceEmbedding: number[]) => {
+  const handleFaceCapture = async (result: any) => {
     setAuthStatus('idle');
     
-    const voter = authenticateVoter(faceEmbedding);
-    
-    if (voter) {
-      if (voter.hasVoted) {
+    if (result.success) {
+      const voterName = result.voter_name;
+      
+      if (result.has_voted) {
         setAuthStatus('failed');
-        alert('You have already voted in this election.');
+        alert(`${voterName}, you have already voted in this election.`);
       } else {
-        setCurrentVoter(voter);
-        setAuthStatus('success');
-        setTimeout(() => {
-          onAuthenticated();
-        }, 2000);
+        // Find the voter in local context
+        const voter = voters.find(v => v.name === voterName);
+        if (voter) {
+          setCurrentVoter(voter);
+          setAuthStatus('success');
+          setTimeout(() => {
+            onAuthenticated();
+          }, 2000);
+        } else {
+          setAuthStatus('failed');
+          alert('Voter found in backend but not in local database. Please contact administrator.');
+        }
       }
     } else {
       setAuthStatus('failed');
@@ -53,7 +62,7 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-4">Voter Portal</h2>
         <p className="text-lg text-gray-600">
-          Register as a new voter or authenticate to cast your vote
+          Register as a new voter or authenticate with advanced biometric technology
         </p>
       </div>
 
@@ -68,9 +77,14 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">New Voter</h3>
-              <p className="text-gray-600 mb-6">
-                First time voting? Register yourself to participate in the election.
+              <p className="text-gray-600 mb-4">
+                First time voting? Register with advanced biometric security.
               </p>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-green-700">
+                  🔬 Powered by MTCNN + FaceNet technology
+                </p>
+              </div>
               <button
                 onClick={() => setCurrentMode('register')}
                 className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -89,9 +103,14 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Existing Voter</h3>
-              <p className="text-gray-600 mb-6">
-                Already registered? Use face authentication to access your ballot.
+              <p className="text-gray-600 mb-4">
+                Already registered? Use advanced face authentication to access your ballot.
               </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-700">
+                  🧠 AI-powered face recognition
+                </p>
+              </div>
               <button
                 onClick={() => setCurrentMode('authenticate')}
                 className="inline-flex items-center px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
@@ -106,7 +125,7 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
       {currentMode === 'authenticate' && (
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Face Authentication</h3>
+            <h3 className="text-xl font-bold text-gray-900">Advanced Face Authentication</h3>
             <button
               onClick={() => setCurrentMode('select')}
               className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -126,7 +145,7 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
                     </svg>
                   </div>
                   <h3 className="text-xl font-semibold text-green-900 mb-2">Authentication Successful!</h3>
-                  <p className="text-green-700">Redirecting to voting interface...</p>
+                  <p className="text-green-700">Biometric verification complete. Redirecting to voting interface...</p>
                 </div>
               )}
 
@@ -152,8 +171,8 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
                           <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900">Secure</h3>
-                      <p className="text-sm text-gray-600">Advanced biometric authentication</p>
+                      <h3 className="text-lg font-semibold text-gray-900">MTCNN Detection</h3>
+                      <p className="text-sm text-gray-600">Multi-task CNN face detection</p>
                     </div>
                     
                     <div className="text-center">
@@ -162,8 +181,8 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
                           <path fillRule="evenodd" d="M10 18a8 8 0 000-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900">Fast</h3>
-                      <p className="text-sm text-gray-600">Quick face recognition process</p>
+                      <h3 className="text-lg font-semibold text-gray-900">FaceNet Embeddings</h3>
+                      <p className="text-sm text-gray-600">Deep learning face recognition</p>
                     </div>
                     
                     <div className="text-center">
@@ -172,8 +191,8 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
                           <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900">Private</h3>
-                      <p className="text-sm text-gray-600">No images stored, only secure hashes</p>
+                      <h3 className="text-lg font-semibold text-gray-900">Cosine Similarity</h3>
+                      <p className="text-sm text-gray-600">High-precision matching algorithm</p>
                     </div>
                   </div>
 
@@ -185,17 +204,18 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
                     <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                     </svg>
-                    Start Face Authentication
+                    Start Advanced Authentication
                   </button>
 
                   <p className="text-sm text-gray-500 mt-4">
-                    Click the button above to begin the face recognition process
+                    Click the button above to begin AI-powered face recognition
                   </p>
                 </>
               )}
             </div>
           ) : (
             <FaceCapture
+              mode="authenticate"
               onCapture={handleFaceCapture}
               onCancel={() => setIsScanning(false)}
             />

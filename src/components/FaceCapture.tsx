@@ -1,19 +1,24 @@
 
 import { useState, useRef, useEffect } from 'react';
+import { faceRecognitionApi } from '../services/faceRecognitionApi';
 
 interface FaceCaptureProps {
-  onCapture: (embedding: number[]) => void;
+  onCapture: (result: any) => void;
   onCancel: () => void;
+  mode: 'register' | 'authenticate';
+  voterData?: { name: string; email: string };
 }
 
-const FaceCapture = ({ onCapture, onCancel }: FaceCaptureProps) => {
+const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState('Initializing camera...');
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
   useEffect(() => {
+    checkBackendStatus();
     initializeCamera();
     
     return () => {
@@ -22,6 +27,15 @@ const FaceCapture = ({ onCapture, onCancel }: FaceCaptureProps) => {
       }
     };
   }, []);
+
+  const checkBackendStatus = async () => {
+    try {
+      const isHealthy = await faceRecognitionApi.healthCheck();
+      setBackendStatus(isHealthy ? 'online' : 'offline');
+    } catch (error) {
+      setBackendStatus('offline');
+    }
+  };
 
   const initializeCamera = async () => {
     try {
@@ -43,115 +57,68 @@ const FaceCapture = ({ onCapture, onCancel }: FaceCaptureProps) => {
     }
   };
 
-  const generateFaceEmbedding = (imageData: Uint8ClampedArray): number[] => {
-    console.log('Generating face embedding from image data');
+  const captureImageAsBase64 = (): string | null => {
+    if (!videoRef.current || !canvasRef.current) return null;
     
-    // Create a more sophisticated embedding based on facial features
-    const embedding = new Array(512).fill(0); // Increased to 512 dimensions for better accuracy
-    const width = 640;
-    const height = 480;
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    const context = canvas.getContext('2d');
     
-    // Divide image into regions for feature extraction
-    const regionSize = 64;
-    const regionsX = Math.floor(width / regionSize);
-    const regionsY = Math.floor(height / regionSize);
+    if (!context) return null;
     
-    let embeddingIndex = 0;
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     
-    // Extract features from each region
-    for (let ry = 0; ry < regionsY && embeddingIndex < embedding.length; ry++) {
-      for (let rx = 0; rx < regionsX && embeddingIndex < embedding.length; rx++) {
-        const startX = rx * regionSize;
-        const startY = ry * regionSize;
-        
-        let regionSum = 0;
-        let regionVar = 0;
-        let pixelCount = 0;
-        
-        // Calculate region statistics
-        for (let y = startY; y < Math.min(startY + regionSize, height); y++) {
-          for (let x = startX; x < Math.min(startX + regionSize, width); x++) {
-            const pixelIndex = (y * width + x) * 4;
-            const gray = (imageData[pixelIndex] + imageData[pixelIndex + 1] + imageData[pixelIndex + 2]) / 3;
-            regionSum += gray;
-            pixelCount++;
-          }
-        }
-        
-        const regionMean = regionSum / pixelCount;
-        
-        // Calculate variance for this region
-        for (let y = startY; y < Math.min(startY + regionSize, height); y++) {
-          for (let x = startX; x < Math.min(startX + regionSize, width); x++) {
-            const pixelIndex = (y * width + x) * 4;
-            const gray = (imageData[pixelIndex] + imageData[pixelIndex + 1] + imageData[pixelIndex + 2]) / 3;
-            regionVar += Math.pow(gray - regionMean, 2);
-          }
-        }
-        
-        regionVar = regionVar / pixelCount;
-        
-        // Store features in embedding
-        if (embeddingIndex < embedding.length) {
-          embedding[embeddingIndex] = regionMean / 255; // Normalized mean
-          embeddingIndex++;
-        }
-        if (embeddingIndex < embedding.length) {
-          embedding[embeddingIndex] = Math.sqrt(regionVar) / 255; // Normalized std dev
-          embeddingIndex++;
-        }
-      }
-    }
+    // Draw current video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Add some edge detection features
-    for (let i = 0; i < Math.min(100, imageData.length - 4) && embeddingIndex < embedding.length; i += 20) {
-      const current = (imageData[i] + imageData[i + 1] + imageData[i + 2]) / 3;
-      const next = (imageData[i + 4] + imageData[i + 5] + imageData[i + 6]) / 3;
-      embedding[embeddingIndex] = Math.abs(current - next) / 255;
-      embeddingIndex++;
-    }
-    
-    // Normalize the embedding vector
-    const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    const normalizedEmbedding = magnitude > 0 ? embedding.map(val => val / magnitude) : embedding;
-    
-    console.log('Generated embedding with', normalizedEmbedding.length, 'dimensions');
-    return normalizedEmbedding;
+    // Get base64 image data
+    return canvas.toDataURL('image/jpeg', 0.8);
   };
 
   const captureAndProcess = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    
+    if (backendStatus !== 'online') {
+      setStatus('Backend server is offline. Please start the Python FastAPI server.');
+      return;
+    }
+
     setIsProcessing(true);
-    setStatus('Processing face...');
+    setStatus(`Processing ${mode === 'register' ? 'registration' : 'authentication'}...`);
     
     try {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
+      const imageData = captureImageAsBase64();
       
-      if (!context) return;
+      if (!imageData) {
+        throw new Error('Failed to capture image');
+      }
+
+      let result;
       
-      // Set canvas dimensions to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      // Draw current video frame to canvas
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Get image data
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      
-      // Generate face embedding
-      const embedding = generateFaceEmbedding(imageData.data);
-      
-      console.log('Face embedding generated successfully');
-      setStatus('Face captured successfully!');
-      onCapture(embedding);
+      if (mode === 'register' && voterData) {
+        result = await faceRecognitionApi.registerVoter({
+          name: voterData.name,
+          email: voterData.email,
+          image_data: imageData
+        });
+      } else if (mode === 'authenticate') {
+        result = await faceRecognitionApi.authenticateVoter({
+          image_data: imageData
+        });
+      }
+
+      if (result?.success) {
+        setStatus(`${mode === 'register' ? 'Registration' : 'Authentication'} successful!`);
+        onCapture(result);
+      } else {
+        setStatus(result?.message || `${mode === 'register' ? 'Registration' : 'Authentication'} failed`);
+        setTimeout(() => setStatus('Ready to try again'), 3000);
+      }
       
     } catch (error) {
-      console.error('Error processing face:', error);
-      setStatus('Error processing face');
+      console.error(`Error during ${mode}:`, error);
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setStatus('Ready to try again'), 3000);
     } finally {
       setIsProcessing(false);
     }
@@ -180,14 +147,30 @@ const FaceCapture = ({ onCapture, onCancel }: FaceCaptureProps) => {
           </div>
           
           <div className="text-center">
+            {/* Backend Status */}
+            <div className="mb-3">
+              <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
+                backendStatus === 'online' ? 'bg-green-100 text-green-800' :
+                backendStatus === 'offline' ? 'bg-red-100 text-red-800' :
+                'bg-yellow-100 text-yellow-800'
+              }`}>
+                <span className={`w-2 h-2 rounded-full mr-1 ${
+                  backendStatus === 'online' ? 'bg-green-400' :
+                  backendStatus === 'offline' ? 'bg-red-400' :
+                  'bg-yellow-400'
+                }`}></span>
+                Backend {backendStatus}
+              </span>
+            </div>
+
             <p className="text-sm text-gray-600 mb-3">{status}</p>
             <div className="flex justify-center space-x-3">
               <button
                 onClick={captureAndProcess}
-                disabled={isProcessing || !stream}
+                disabled={isProcessing || !stream || backendStatus !== 'online'}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
-                {isProcessing ? 'Processing...' : 'Capture Face'}
+                {isProcessing ? 'Processing...' : `Capture for ${mode === 'register' ? 'Registration' : 'Authentication'}`}
               </button>
               <button
                 onClick={onCancel}
@@ -202,7 +185,9 @@ const FaceCapture = ({ onCapture, onCancel }: FaceCaptureProps) => {
         {/* Instructions */}
         <div className="space-y-6">
           <div>
-            <h4 className="text-lg font-medium text-gray-900 mb-3">Face Capture Instructions</h4>
+            <h4 className="text-lg font-medium text-gray-900 mb-3">
+              {mode === 'register' ? 'Face Registration' : 'Face Authentication'} Instructions
+            </h4>
             <ul className="space-y-2 text-sm text-gray-600">
               <li className="flex items-start">
                 <span className="flex-shrink-0 w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
@@ -218,7 +203,7 @@ const FaceCapture = ({ onCapture, onCancel }: FaceCaptureProps) => {
               </li>
               <li className="flex items-start">
                 <span className="flex-shrink-0 w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
-                <span>Click "Capture Face" when ready</span>
+                <span>Click the capture button when ready</span>
               </li>
             </ul>
           </div>
@@ -229,13 +214,29 @@ const FaceCapture = ({ onCapture, onCancel }: FaceCaptureProps) => {
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
               <div>
-                <h5 className="text-sm font-medium text-blue-900">Privacy Notice</h5>
+                <h5 className="text-sm font-medium text-blue-900">Enhanced Security</h5>
                 <p className="text-sm text-blue-700 mt-1">
-                  Face data is processed locally and stored securely. Only mathematical representations (embeddings) are saved, not actual images.
+                  Using MTCNN face detection and FaceNet embeddings for high-accuracy biometric authentication.
                 </p>
               </div>
             </div>
           </div>
+
+          {backendStatus === 'offline' && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex">
+                <svg className="w-5 h-5 text-red-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <h5 className="text-sm font-medium text-red-900">Backend Required</h5>
+                  <p className="text-sm text-red-700 mt-1">
+                    Please run the Python FastAPI server: <code>python backend/main.py</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

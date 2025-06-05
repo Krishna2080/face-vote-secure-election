@@ -15,18 +15,22 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
     email: ''
   });
 
-  const handleRegisterVoter = async (faceEmbedding: number[]) => {
-    if (formData.name && formData.email && faceEmbedding.length > 0) {
+  const handleRegisterVoter = async (result: any) => {
+    if (result.success && formData.name && formData.email) {
+      // Add voter to local context with the embedding from backend
       addVoter({
         name: formData.name,
         email: formData.email,
-        faceEmbedding
+        faceEmbedding: result.embedding || []
       });
       
       setFormData({ name: '', email: '' });
       setIsCapturingFace(false);
-      alert('Voter registered successfully! You can now proceed to authentication.');
+      alert(`Registration successful! ${formData.name} has been registered with advanced face recognition.`);
       onRegistrationComplete();
+    } else {
+      alert(`Registration failed: ${result.message || 'Unknown error'}`);
+      setIsCapturingFace(false);
     }
   };
 
@@ -43,7 +47,7 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-4">Voter Registration</h2>
         <p className="text-lg text-gray-600">
-          Register as a new voter to participate in the election
+          Register as a new voter with advanced biometric authentication
         </p>
       </div>
 
@@ -79,9 +83,9 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-lg font-medium text-blue-900 mb-2">Next Step: Face Registration</h4>
+              <h4 className="text-lg font-medium text-blue-900 mb-2">Next Step: Advanced Face Registration</h4>
               <p className="text-blue-700 text-sm mb-4">
-                After filling in your details, you'll need to capture your face data for secure authentication during voting.
+                After filling in your details, you'll capture your face data using MTCNN detection and FaceNet embeddings for secure authentication during voting.
               </p>
               <button
                 onClick={handleStartFaceCapture}
@@ -94,11 +98,23 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
                 Capture Face Data
               </button>
             </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-green-900 mb-2">🔬 Advanced Technology</h4>
+              <ul className="text-sm text-green-700 space-y-1">
+                <li>• MTCNN for precise face detection</li>
+                <li>• FaceNet neural network embeddings</li>
+                <li>• Cosine similarity matching</li>
+                <li>• High-accuracy biometric authentication</li>
+              </ul>
+            </div>
           </div>
         ) : (
           <div>
-            <h4 className="text-lg font-medium text-gray-900 mb-4">Face Registration</h4>
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Advanced Face Registration</h4>
             <FaceCapture
+              mode="register"
+              voterData={formData}
               onCapture={handleRegisterVoter}
               onCancel={() => setIsCapturingFace(false)}
             />
