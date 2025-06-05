@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface Voter {
@@ -31,6 +30,8 @@ interface VotingContextType {
   votes: Vote[];
   currentVoter: Voter | null;
   addVoter: (voter: Omit<Voter, 'id' | 'hasVoted' | 'registeredAt'>) => void;
+  addCandidate: (candidate: Omit<Candidate, 'id' | 'votes'>) => void;
+  deleteCandidate: (candidateId: string) => void;
   authenticateVoter: (faceEmbedding: number[]) => Voter | null;
   castVote: (candidateId: string) => boolean;
   setCurrentVoter: (voter: Voter | null) => void;
@@ -45,7 +46,8 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [votes, setVotes] = useState<Vote[]>([]);
   const [currentVoter, setCurrentVoter] = useState<Voter | null>(null);
 
-  const candidates: Candidate[] = [
+  // Default candidates - now stored in state
+  const [candidates, setCandidates] = useState<Candidate[]>([
     {
       id: '1',
       name: 'Sarah Johnson',
@@ -74,12 +76,13 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       image: '/placeholder.svg',
       votes: 0
     }
-  ];
+  ]);
 
   // Load data from localStorage on component mount
   useEffect(() => {
     const savedVoters = localStorage.getItem('secureVote_voters');
     const savedVotes = localStorage.getItem('secureVote_votes');
+    const savedCandidates = localStorage.getItem('secureVote_candidates');
     
     if (savedVoters) {
       setVoters(JSON.parse(savedVoters));
@@ -87,9 +90,12 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (savedVotes) {
       setVotes(JSON.parse(savedVotes));
     }
+    if (savedCandidates) {
+      setCandidates(JSON.parse(savedCandidates));
+    }
   }, []);
 
-  // Save data to localStorage whenever voters or votes change
+  // Save data to localStorage whenever voters, votes, or candidates change
   useEffect(() => {
     localStorage.setItem('secureVote_voters', JSON.stringify(voters));
   }, [voters]);
@@ -97,6 +103,10 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     localStorage.setItem('secureVote_votes', JSON.stringify(votes));
   }, [votes]);
+
+  useEffect(() => {
+    localStorage.setItem('secureVote_candidates', JSON.stringify(candidates));
+  }, [candidates]);
 
   const addVoter = (voterData: Omit<Voter, 'id' | 'hasVoted' | 'registeredAt'>) => {
     const newVoter: Voter = {
@@ -106,6 +116,34 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       registeredAt: new Date().toISOString()
     };
     setVoters(prev => [...prev, newVoter]);
+  };
+
+  const addCandidate = (candidateData: Omit<Candidate, 'id' | 'votes'>) => {
+    const newCandidate: Candidate = {
+      ...candidateData,
+      id: Date.now().toString(),
+      votes: 0
+    };
+    setCandidates(prev => [...prev, newCandidate]);
+  };
+
+  const deleteCandidate = (candidateId: string) => {
+    // Remove the candidate
+    setCandidates(prev => prev.filter(candidate => candidate.id !== candidateId));
+    
+    // Remove any votes for this candidate
+    setVotes(prev => prev.filter(vote => vote.candidateId !== candidateId));
+    
+    // If voters voted for this candidate, mark them as not having voted
+    setVoters(prev => 
+      prev.map(voter => {
+        const voterVote = votes.find(vote => vote.voterId === voter.id && vote.candidateId === candidateId);
+        if (voterVote) {
+          return { ...voter, hasVoted: false };
+        }
+        return voter;
+      })
+    );
   };
 
   const calculateSimilarity = (embedding1: number[], embedding2: number[]): number => {
@@ -187,6 +225,8 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       votes,
       currentVoter,
       addVoter,
+      addCandidate,
+      deleteCandidate,
       authenticateVoter,
       castVote,
       setCurrentVoter,

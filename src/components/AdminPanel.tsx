@@ -1,14 +1,19 @@
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
 import FaceCapture from './FaceCapture';
 
 const AdminPanel = () => {
-  const { voters, addVoter } = useVoting();
+  const { voters, candidates, addVoter, addCandidate, deleteCandidate } = useVoting();
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isAddingCandidate, setIsAddingCandidate] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: ''
+  });
+  const [candidateFormData, setCandidateFormData] = useState({
+    name: '',
+    party: ''
   });
 
   const handleRegisterVoter = async (faceEmbedding: number[]) => {
@@ -25,16 +30,37 @@ const AdminPanel = () => {
     }
   };
 
+  const handleAddCandidate = () => {
+    if (candidateFormData.name && candidateFormData.party) {
+      addCandidate({
+        name: candidateFormData.name,
+        party: candidateFormData.party,
+        image: '/placeholder.svg'
+      });
+      
+      setCandidateFormData({ name: '', party: '' });
+      setIsAddingCandidate(false);
+      alert('Candidate added successfully!');
+    }
+  };
+
+  const handleDeleteCandidate = (candidateId: string, candidateName: string) => {
+    if (window.confirm(`Are you sure you want to delete ${candidateName}? This will also remove all votes for this candidate.`)) {
+      deleteCandidate(candidateId);
+      alert('Candidate deleted successfully!');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Control Panel</h2>
-        <p className="text-gray-600">Manage voter registration and system settings</p>
+        <p className="text-gray-600">Manage voter registration, candidates, and system settings</p>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-blue-100">
@@ -45,6 +71,20 @@ const AdminPanel = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Registered Voters</p>
               <p className="text-2xl font-bold text-gray-900">{voters.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-purple-100">
+              <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Candidates</p>
+              <p className="text-2xl font-bold text-gray-900">{candidates.length}</p>
             </div>
           </div>
         </div>
@@ -75,6 +115,99 @@ const AdminPanel = () => {
               <p className="text-2xl font-bold text-gray-900">{voters.filter(v => !v.hasVoted).length}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Candidate Management */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-900">Candidate Management</h3>
+          {!isAddingCandidate && (
+            <button
+              onClick={() => setIsAddingCandidate(true)}
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Add New Candidate
+            </button>
+          )}
+        </div>
+
+        {isAddingCandidate && (
+          <div className="mb-6 p-4 border border-purple-200 rounded-lg bg-purple-50">
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Add New Candidate</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Candidate Name
+                </label>
+                <input
+                  type="text"
+                  value={candidateFormData.name}
+                  onChange={(e) => setCandidateFormData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter candidate's full name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Party/Affiliation
+                </label>
+                <input
+                  type="text"
+                  value={candidateFormData.party}
+                  onChange={(e) => setCandidateFormData(prev => ({ ...prev, party: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter party or affiliation"
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-4">
+              <button
+                onClick={handleAddCandidate}
+                className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Add Candidate
+              </button>
+              <button
+                onClick={() => {
+                  setIsAddingCandidate(false);
+                  setCandidateFormData({ name: '', party: '' });
+                }}
+                className="px-4 py-2 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Candidates List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {candidates.map((candidate) => (
+            <div key={candidate.id} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h4 className="text-lg font-bold text-gray-900">{candidate.name}</h4>
+                  <p className="text-purple-600 font-medium">{candidate.party}</p>
+                  <p className="text-sm text-gray-500 mt-1">ID: {candidate.id}</p>
+                </div>
+                <button
+                  onClick={() => handleDeleteCandidate(candidate.id, candidate.name)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete Candidate"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9zM4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 012 0v3a1 1 0 11-2 0V9zm4 0a1 1 0 012 0v3a1 1 0 11-2 0V9z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
