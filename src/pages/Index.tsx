@@ -1,13 +1,90 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from 'react';
+import AdminPanel from '../components/AdminPanel';
+import VoterAuth from '../components/VoterAuth';
+import VotingInterface from '../components/VotingInterface';
+import ResultsDashboard from '../components/ResultsDashboard';
+import { VotingProvider } from '../contexts/VotingContext';
 
 const Index = () => {
+  const [currentView, setCurrentView] = useState<'auth' | 'admin' | 'vote' | 'results'>('auth');
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <VotingProvider>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* Header */}
+        <header className="bg-white shadow-lg border-b-4 border-blue-600">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">SecureVote</h1>
+                  <p className="text-sm text-gray-600">Biometric Voting System</p>
+                </div>
+              </div>
+              
+              <nav className="flex space-x-4">
+                <button
+                  onClick={() => setCurrentView('auth')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    currentView === 'auth' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  Voter Login
+                </button>
+                <button
+                  onClick={() => setCurrentView('admin')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    currentView === 'admin' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  Admin Panel
+                </button>
+                <button
+                  onClick={() => setCurrentView('results')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    currentView === 'results' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  Results
+                </button>
+              </nav>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          {currentView === 'auth' && <VoterAuth onAuthenticated={() => setCurrentView('vote')} />}
+          {currentView === 'admin' && <AdminPanel />}
+          {currentView === 'vote' && <VotingInterface onVoteComplete={() => setCurrentView('results')} />}
+          {currentView === 'results' && <ResultsDashboard />}
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-gray-800 text-white py-8 mt-16">
+          <div className="max-w-7xl mx-auto px-4 text-center">
+            <p className="text-gray-400">
+              © 2024 SecureVote - Advanced Biometric Voting System
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Powered by AI Face Recognition Technology
+            </p>
+          </div>
+        </footer>
       </div>
-    </div>
+    </VotingProvider>
   );
 };
 
