@@ -26,10 +26,18 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
       
       setFormData({ name: '', email: '' });
       setIsCapturingFace(false);
-      alert(`Registration successful! ${formData.name} has been registered with advanced face recognition.`);
+      alert(`Registration successful! ${formData.name} has been registered with advanced biometric fraud prevention.`);
       onRegistrationComplete();
     } else {
-      alert(`Registration failed: ${result.message || 'Unknown error'}`);
+      // Enhanced error handling for fraud prevention
+      const errorMessage = result.message || 'Unknown error';
+      if (errorMessage.includes('already registered under the name')) {
+        alert(`⚠️ FRAUD PREVENTION ALERT:\n\n${errorMessage}\n\nEach individual can only register once to maintain election integrity.`);
+      } else if (errorMessage.includes('already registered')) {
+        alert(`Registration failed: ${errorMessage}`);
+      } else {
+        alert(`Registration failed: ${errorMessage}`);
+      }
       setIsCapturingFace(false);
     }
   };
@@ -47,7 +55,7 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-4">Voter Registration</h2>
         <p className="text-lg text-gray-600">
-          Register as a new voter with advanced biometric authentication
+          Register as a new voter with advanced biometric authentication and fraud prevention
         </p>
       </div>
 
@@ -63,7 +71,7 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your full name"
+                placeholder="Enter your full legal name"
                 required
               />
             </div>
@@ -83,9 +91,9 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-lg font-medium text-blue-900 mb-2">Next Step: Advanced Face Registration</h4>
+              <h4 className="text-lg font-medium text-blue-900 mb-2">Next Step: Advanced Biometric Registration</h4>
               <p className="text-blue-700 text-sm mb-4">
-                After filling in your details, you'll capture your face data using MTCNN detection and FaceNet embeddings for secure authentication during voting.
+                Your face will be captured and analyzed using MTCNN detection and FaceNet embeddings. Our system includes advanced fraud prevention to ensure each person can only register once.
               </p>
               <button
                 onClick={handleStartFaceCapture}
@@ -95,8 +103,18 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                 </svg>
-                Capture Face Data
+                Capture Biometric Data
               </button>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-red-900 mb-2">🔒 Fraud Prevention</h4>
+              <ul className="text-sm text-red-700 space-y-1">
+                <li>• Each face can only be registered once</li>
+                <li>• Prevents multiple identities per person</li>
+                <li>• Real-time duplicate detection</li>
+                <li>• Maintains election integrity</li>
+              </ul>
             </div>
 
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -111,7 +129,7 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
           </div>
         ) : (
           <div>
-            <h4 className="text-lg font-medium text-gray-900 mb-4">Advanced Face Registration</h4>
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Advanced Biometric Registration with Fraud Prevention</h4>
             <FaceCapture
               mode="register"
               voterData={formData}

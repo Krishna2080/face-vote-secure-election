@@ -42,6 +42,14 @@ if os.path.exists(voted_users_file):
 else:
     voted_users = set()
 
+# Create registry file to track face-to-name mappings for fraud prevention
+face_registry_file = "face_registry.pkl"
+if os.path.exists(face_registry_file):
+    with open(face_registry_file, "rb") as file:
+        face_registry = pickle.load(file)
+else:
+    face_registry = {}  # {voter_name: embedding}
+
 class VoterRegistration(BaseModel):
     name: str
     email: str
@@ -91,10 +99,22 @@ def extract_face_embedding(image):
     
     return embedding.tolist()
 
+def check_face_duplicate(new_embedding, similarity_threshold=0.3):
+    """Check if a face embedding matches any existing registered face"""
+    for registered_name, registered_embedding in face_registry.items():
+        similarity_score = cosine(new_embedding, registered_embedding)
+        if similarity_score < similarity_threshold:
+            return registered_name
+    return None
+
 @app.post("/register-voter")
 async def register_voter(registration: VoterRegistration):
-    """Register a new voter with face embedding"""
+    """Register a new voter with face embedding and fraud prevention"""
     try:
+        # Check if name already exists
+        if registration.name in face_registry:
+            raise HTTPException(status_code=400, detail=f"Voter with name '{registration.name}' is already registered")
+        
         # Convert base64 image to OpenCV format
         image = base64_to_opencv_image(registration.image_data)
         
@@ -104,17 +124,32 @@ async def register_voter(registration: VoterRegistration):
         if embedding is None:
             raise HTTPException(status_code=400, detail="No face detected in the image")
         
+        # Check for face duplicates (fraud prevention)
+        duplicate_name = check_face_duplicate(embedding)
+        if duplicate_name:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"This face is already registered under the name '{duplicate_name}'. Each person can only register once."
+            )
+        
         # Save embedding to file
         user_face_file = os.path.join(face_data_dir, f"{registration.name}.pkl")
         with open(user_face_file, "wb") as file:
             pickle.dump([embedding], file)
         
+        # Add to face registry for fraud prevention
+        face_registry[registration.name] = embedding
+        with open(face_registry_file, "wb") as file:
+            pickle.dump(face_registry, file)
+        
         return {
             "success": True,
-            "message": f"Voter {registration.name} registered successfully",
+            "message": f"Voter {registration.name} registered successfully with biometric verification",
             "embedding": embedding
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
@@ -171,7 +206,7 @@ async def authenticate_voter(auth_request: FaceAuthentication):
         else:
             return {
                 "success": False,
-                "message": "Face not recognized",
+                "message": "Face not recognized. Please ensure you are registered to vote.",
                 "voter_name": None,
                 "has_voted": False
             }
@@ -208,6 +243,25 @@ async def cast_vote(vote_request: VoteRequest):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "message": "Face recognition API is running"}
+
+@app.get("/voter-stats")
+async def get_voter_stats():
+    """Get statistics about registered voters and votes cast"""
+    try:
+        total_registered = len(face_registry)
+        total_voted = len(voted_users)
+        
+        return {
+            "success": True,
+            "total_registered": total_registered,
+            "total_voted": total_voted,
+            "remaining_voters": total_registered - total_voted
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to get stats: {str(e)}"
+        }
 
 if __name__ == "__main__":
     import uvicorn
