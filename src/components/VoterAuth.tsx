@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
 import FaceCapture from './FaceCapture';
@@ -10,7 +9,7 @@ interface VoterAuthProps {
 }
 
 const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
-  const { setCurrentVoter, voters } = useVoting();
+  const { setCurrentVoter, voters, electionName } = useVoting();
   const [currentMode, setCurrentMode] = useState<'select' | 'register' | 'authenticate'>('select');
   const [isScanning, setIsScanning] = useState(false);
   const [authStatus, setAuthStatus] = useState<'idle' | 'success' | 'failed'>('idle');
@@ -60,6 +59,10 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
+        <div className="bg-blue-600 text-white rounded-xl p-6 mb-6">
+          <h1 className="text-4xl font-bold mb-2">{electionName}</h1>
+          <p className="text-blue-100 text-lg">Secure Biometric Voting System</p>
+        </div>
         <h2 className="text-3xl font-bold text-gray-900 mb-4">Voter Portal</h2>
         <p className="text-lg text-gray-600">
           Register as a new voter or authenticate with advanced biometric technology

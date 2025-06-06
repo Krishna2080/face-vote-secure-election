@@ -1,10 +1,12 @@
+
 import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
-import FaceCapture from './FaceCapture';
 
 const AdminPanel = () => {
-  const { voters, candidates, addCandidate, deleteCandidate } = useVoting();
+  const { voters, candidates, electionName, addCandidate, deleteCandidate, setElectionName } = useVoting();
   const [isAddingCandidate, setIsAddingCandidate] = useState(false);
+  const [isEditingElection, setIsEditingElection] = useState(false);
+  const [tempElectionName, setTempElectionName] = useState(electionName);
   const [candidateFormData, setCandidateFormData] = useState({
     name: '',
     party: ''
@@ -31,12 +33,82 @@ const AdminPanel = () => {
     }
   };
 
+  const handleUpdateElectionName = () => {
+    if (tempElectionName.trim()) {
+      setElectionName(tempElectionName.trim());
+      setIsEditingElection(false);
+      alert('Election name updated successfully!');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Control Panel</h2>
-        <p className="text-gray-600">Manage candidates and monitor election statistics</p>
+        <p className="text-gray-600">Manage election details, candidates and monitor election statistics</p>
+      </div>
+
+      {/* Election Management */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-900">Election Information</h3>
+          {!isEditingElection && (
+            <button
+              onClick={() => {
+                setTempElectionName(electionName);
+                setIsEditingElection(true);
+              }}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+              Edit Election Name
+            </button>
+          )}
+        </div>
+
+        {!isEditingElection ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-lg font-semibold text-blue-900">Current Election</h4>
+                <p className="text-xl font-bold text-blue-700">{electionName}</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Update Election Name</h4>
+            <div className="flex space-x-4">
+              <input
+                type="text"
+                value={tempElectionName}
+                onChange={(e) => setTempElectionName(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter election name"
+              />
+              <button
+                onClick={handleUpdateElectionName}
+                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => setIsEditingElection(false)}
+                className="px-4 py-2 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Stats */}

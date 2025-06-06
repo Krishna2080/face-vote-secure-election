@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
 
@@ -7,7 +6,7 @@ interface VotingInterfaceProps {
 }
 
 const VotingInterface = ({ onVoteComplete }: VotingInterfaceProps) => {
-  const { candidates, currentVoter, castVote } = useVoting();
+  const { candidates, currentVoter, electionName, castVote } = useVoting();
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
@@ -45,6 +44,9 @@ const VotingInterface = ({ onVoteComplete }: VotingInterfaceProps) => {
     <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="text-center mb-4">
+          <h1 className="text-2xl font-bold text-blue-600 mb-2">{electionName}</h1>
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Cast Your Vote</h2>
@@ -92,7 +94,7 @@ const VotingInterface = ({ onVoteComplete }: VotingInterfaceProps) => {
                 <div className="text-center">
                   <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
                     <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </div>
                   

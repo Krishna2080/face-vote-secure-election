@@ -29,12 +29,14 @@ interface VotingContextType {
   candidates: Candidate[];
   votes: Vote[];
   currentVoter: Voter | null;
+  electionName: string;
   addVoter: (voter: Omit<Voter, 'id' | 'hasVoted' | 'registeredAt'>) => void;
   addCandidate: (candidate: Omit<Candidate, 'id' | 'votes'>) => void;
   deleteCandidate: (candidateId: string) => void;
   authenticateVoter: (faceEmbedding: number[]) => Voter | null;
   castVote: (candidateId: string) => boolean;
   setCurrentVoter: (voter: Voter | null) => void;
+  setElectionName: (name: string) => void;
   getTotalVotes: () => number;
   getResults: () => Array<Candidate & { percentage: number }>;
 }
@@ -45,6 +47,7 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [voters, setVoters] = useState<Voter[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [currentVoter, setCurrentVoter] = useState<Voter | null>(null);
+  const [electionName, setElectionName] = useState<string>('General Election 2024');
 
   // Default candidates - now stored in state
   const [candidates, setCandidates] = useState<Candidate[]>([
@@ -83,6 +86,7 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const savedVoters = localStorage.getItem('secureVote_voters');
     const savedVotes = localStorage.getItem('secureVote_votes');
     const savedCandidates = localStorage.getItem('secureVote_candidates');
+    const savedElectionName = localStorage.getItem('secureVote_electionName');
     
     if (savedVoters) {
       setVoters(JSON.parse(savedVoters));
@@ -93,9 +97,12 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (savedCandidates) {
       setCandidates(JSON.parse(savedCandidates));
     }
+    if (savedElectionName) {
+      setElectionName(savedElectionName);
+    }
   }, []);
 
-  // Save data to localStorage whenever voters, votes, or candidates change
+  // Save data to localStorage whenever voters, votes, candidates, or election name change
   useEffect(() => {
     localStorage.setItem('secureVote_voters', JSON.stringify(voters));
   }, [voters]);
@@ -107,6 +114,10 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     localStorage.setItem('secureVote_candidates', JSON.stringify(candidates));
   }, [candidates]);
+
+  useEffect(() => {
+    localStorage.setItem('secureVote_electionName', electionName);
+  }, [electionName]);
 
   const addVoter = (voterData: Omit<Voter, 'id' | 'hasVoted' | 'registeredAt'>) => {
     const newVoter: Voter = {
@@ -224,12 +235,14 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       candidates,
       votes,
       currentVoter,
+      electionName,
       addVoter,
       addCandidate,
       deleteCandidate,
       authenticateVoter,
       castVote,
       setCurrentVoter,
+      setElectionName,
       getTotalVotes,
       getResults
     }}>
