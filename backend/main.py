@@ -9,14 +9,16 @@ from web3 import Web3
 
 app = FastAPI(title="SecureVote Face Recognition & Blockchain API")
 
-# Enable CORS for the frontend
+# Enable CORS for the frontend running on localhost:8080
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Your frontend URL
+    allow_origins=["http://localhost:8080", "http://localhost:5173"],  # Support both ports
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ... keep existing code (all the endpoints remain the same)
 
 @app.post("/register-voter")
 async def register_voter(registration: VoterRegistration):
@@ -114,7 +116,7 @@ async def cast_vote(vote_request: VoteRequest):
         if voter_service.has_voted(vote_request.voter_name):
             raise HTTPException(status_code=400, detail="Voter has already cast their vote")
         
-        # Cast vote on blockchain first
+        # Cast vote on blockchain first (if configured)
         blockchain_result = blockchain_service.cast_vote_on_blockchain(
             vote_request.voter_name, 
             vote_request.candidate_id
@@ -126,7 +128,7 @@ async def cast_vote(vote_request: VoteRequest):
             
             return {
                 "success": True,
-                "message": f"Vote recorded locally for {vote_request.voter_name}. Blockchain unavailable.",
+                "message": f"Vote recorded locally for {vote_request.voter_name}. Blockchain: {blockchain_result['message']}",
                 "blockchain_result": blockchain_result,
                 "local_backup": True
             }
@@ -154,12 +156,12 @@ async def configure_blockchain(config: BlockchainConfig):
     """Configure blockchain connection parameters"""
     try:
         blockchain_service.contract_address = config.contract_address
-        blockchain_service.rpc_url = config.rpc_url
+        blockchain_service.rpc_url = config.rpc_url or "https://rpc.sepolia.org"
         blockchain_service.private_key = config.private_key
         blockchain_service.account_address = config.account_address
         
-        # Reinitialize connection
-        blockchain_service.web3 = Web3(Web3.HTTPProvider(config.rpc_url))
+        # Initialize Web3 connection with public Sepolia RPC
+        blockchain_service.web3 = Web3(Web3.HTTPProvider(blockchain_service.rpc_url))
         blockchain_service._initialize_contract()
         
         return {
@@ -183,6 +185,7 @@ async def get_blockchain_status():
         return {
             "connected": False,
             "contract_configured": False,
+            "contract_address": "",
             "error": str(e)
         }
 
@@ -197,7 +200,7 @@ async def get_blockchain_results():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "message": "Face recognition API is running"}
+    return {"status": "healthy", "message": "SecureVote API is running"}
 
 @app.get("/voter-stats")
 async def get_voter_stats():
@@ -216,4 +219,7 @@ async def get_voter_stats():
 
 if __name__ == "__main__":
     import uvicorn
+    print("Starting SecureVote Backend API...")
+    print("Frontend should run on: http://localhost:8080")
+    print("Backend API available at: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)

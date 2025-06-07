@@ -9,7 +9,7 @@ interface BlockchainConfigProps {
 const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
   const [config, setConfig] = useState({
     contract_address: '',
-    rpc_url: 'https://sepolia.infura.io/v3/',
+    rpc_url: 'https://rpc.sepolia.org',
     private_key: '',
     account_address: ''
   });
@@ -21,11 +21,39 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
   });
   
   const [isLoading, setIsLoading] = useState(false);
-  const [useMetaMask, setUseMetaMask] = useState(true);
+  const [metaMaskStatus, setMetaMaskStatus] = useState<'not_installed' | 'disconnected' | 'connected' | 'wrong_network'>('disconnected');
 
   useEffect(() => {
     loadBlockchainStatus();
+    checkMetaMaskStatus();
   }, []);
+
+  const checkMetaMaskStatus = async () => {
+    if (typeof window.ethereum === 'undefined') {
+      setMetaMaskStatus('not_installed');
+      return;
+    }
+
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts.length === 0) {
+        setMetaMaskStatus('disconnected');
+        return;
+      }
+
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      if (chainId !== '0xaa36a7') { // Sepolia chainId
+        setMetaMaskStatus('wrong_network');
+        return;
+      }
+
+      setMetaMaskStatus('connected');
+      setConfig(prev => ({ ...prev, account_address: accounts[0] }));
+    } catch (error) {
+      console.error('Error checking MetaMask status:', error);
+      setMetaMaskStatus('disconnected');
+    }
+  };
 
   const loadBlockchainStatus = async () => {
     try {
@@ -37,47 +65,48 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
   };
 
   const connectMetaMask = async () => {
+    if (typeof window.ethereum === 'undefined') {
+      alert('MetaMask is not installed. Please install MetaMask extension from metamask.io');
+      return;
+    }
+
     try {
-      if (typeof window.ethereum !== 'undefined') {
-        // Request account access
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        
-        // Switch to Sepolia network
-        try {
+      // Request account access
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
+      // Switch to Sepolia network
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0xaa36a7' }], // Sepolia chainId
+        });
+      } catch (switchError: any) {
+        // If Sepolia is not added, add it
+        if (switchError.code === 4902) {
           await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa36a7' }], // Sepolia chainId
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0xaa36a7',
+              chainName: 'Sepolia Test Network',
+              nativeCurrency: {
+                name: 'SepoliaETH',
+                symbol: 'ETH',
+                decimals: 18
+              },
+              rpcUrls: ['https://rpc.sepolia.org'],
+              blockExplorerUrls: ['https://sepolia.etherscan.io']
+            }]
           });
-        } catch (switchError: any) {
-          // If Sepolia is not added, add it
-          if (switchError.code === 4902) {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0xaa36a7',
-                chainName: 'Sepolia Test Network',
-                nativeCurrency: {
-                  name: 'SepoliaETH',
-                  symbol: 'ETH',
-                  decimals: 18
-                },
-                rpcUrls: ['https://sepolia.infura.io/v3/'],
-                blockExplorerUrls: ['https://sepolia.etherscan.io']
-              }]
-            });
-          }
         }
-        
-        setConfig(prev => ({
-          ...prev,
-          account_address: accounts[0],
-          rpc_url: 'https://sepolia.infura.io/v3/' // MetaMask handles RPC
-        }));
-        
-        alert('MetaMask connected successfully! Please enter your private key and contract address.');
-      } else {
-        alert('MetaMask is not installed. Please install MetaMask extension.');
       }
+      
+      setConfig(prev => ({
+        ...prev,
+        account_address: accounts[0]
+      }));
+      
+      setMetaMaskStatus('connected');
+      alert('MetaMask connected successfully! Please enter your private key and contract address.');
     } catch (error) {
       console.error('Failed to connect MetaMask:', error);
       alert('Failed to connect to MetaMask. Please try again.');
@@ -105,6 +134,24 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
     }
   };
 
+  const getMetaMaskStatusColor = () => {
+    switch (metaMaskStatus) {
+      case 'connected': return 'bg-green-500';
+      case 'wrong_network': return 'bg-yellow-500';
+      case 'not_installed': return 'bg-red-500';
+      default: return 'bg-red-500';
+    }
+  };
+
+  const getMetaMaskStatusText = () => {
+    switch (metaMaskStatus) {
+      case 'connected': return 'MetaMask Connected (Sepolia)';
+      case 'wrong_network': return 'MetaMask Connected (Wrong Network)';
+      case 'not_installed': return 'MetaMask Not Installed';
+      default: return 'MetaMask Disconnected';
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-xl shadow-lg p-8">
@@ -115,8 +162,12 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
           <h3 className="text-lg font-semibold mb-3">Current Status</h3>
           <div className="space-y-2">
             <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-3 ${getMetaMaskStatusColor()}`}></div>
+              <span className="text-sm">{getMetaMaskStatusText()}</span>
+            </div>
+            <div className="flex items-center">
               <div className={`w-3 h-3 rounded-full mr-3 ${status.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm">Network Connection: {status.connected ? 'Connected' : 'Disconnected'}</span>
+              <span className="text-sm">Backend Connection: {status.connected ? 'Connected' : 'Disconnected'}</span>
             </div>
             <div className="flex items-center">
               <div className={`w-3 h-3 rounded-full mr-3 ${status.contract_configured ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -130,25 +181,40 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
           </div>
         </div>
 
-        {/* MetaMask Connection */}
+        {/* Setup Instructions */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">MetaMask Integration</h3>
-          <p className="text-blue-700 mb-3">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">Setup Instructions</h3>
+          <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside">
+            <li>Install MetaMask browser extension from metamask.io</li>
+            <li>Switch to Sepolia testnet in MetaMask</li>
+            <li>Get Sepolia ETH from faucet: sepolia-faucet.pk910.de</li>
+            <li>Open Remix IDE (remix.ethereum.org)</li>
+            <li>Deploy the SecureVoting contract on Sepolia</li>
+            <li>Copy the deployed contract address</li>
+            <li>Connect MetaMask below and configure</li>
+          </ol>
+        </div>
+
+        {/* MetaMask Connection */}
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-orange-900 mb-3">MetaMask Connection</h3>
+          <p className="text-orange-700 mb-3">
             Connect your MetaMask wallet to automatically configure Sepolia testnet settings.
           </p>
           <button
             type="button"
             onClick={connectMetaMask}
-            className="px-6 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+            disabled={metaMaskStatus === 'not_installed'}
+            className="px-6 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            Connect MetaMask
+            {metaMaskStatus === 'not_installed' ? 'Install MetaMask First' : 'Connect MetaMask'}
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Smart Contract Address
+              Smart Contract Address *
             </label>
             <input
               type="text"
@@ -158,30 +224,12 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
               placeholder="0x..."
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Deploy your smart contract on Sepolia testnet using Remix IDE and enter the address here</p>
+            <p className="text-xs text-gray-500 mt-1">Deploy SecureVoting.sol on Sepolia using Remix IDE and enter the address here</p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              RPC URL
-            </label>
-            <input
-              type="text"
-              value={config.rpc_url}
-              onChange={(e) => setConfig(prev => ({ ...prev, rpc_url: e.target.value }))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="https://sepolia.infura.io/v3/ (MetaMask handles this)"
-              required
-              disabled={useMetaMask}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {useMetaMask ? 'MetaMask will handle the RPC connection' : 'Sepolia testnet RPC endpoint'}
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Private Key
+              Private Key *
             </label>
             <input
               type="password"
@@ -202,28 +250,16 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
               type="text"
               value={config.account_address}
               onChange={(e) => setConfig(prev => ({ ...prev, account_address: e.target.value }))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0x..."
-              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+              placeholder="Auto-filled from MetaMask"
+              readOnly
             />
-            <p className="text-xs text-gray-500 mt-1">Your MetaMask wallet address (should have Sepolia ETH for gas)</p>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Setup Instructions:</h4>
-            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Install MetaMask browser extension</li>
-              <li>Switch to Sepolia testnet in MetaMask</li>
-              <li>Get Sepolia ETH from a faucet (sepolia-faucet.pk910.de)</li>
-              <li>Deploy the smart contract on Sepolia using Remix IDE</li>
-              <li>Connect MetaMask above to auto-fill wallet details</li>
-              <li>Enter your contract address and private key</li>
-            </ol>
+            <p className="text-xs text-gray-500 mt-1">Automatically filled when MetaMask is connected</p>
           </div>
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || metaMaskStatus !== 'connected'}
             className="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? 'Configuring...' : 'Configure Blockchain'}

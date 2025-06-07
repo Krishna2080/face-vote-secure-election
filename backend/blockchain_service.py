@@ -11,16 +11,16 @@ logger = logging.getLogger(__name__)
 
 class BlockchainService:
     def __init__(self):
-        # Sepolia testnet configuration
-        self.rpc_url = "https://sepolia.infura.io/v3/"  # Will be updated via configuration
+        # MetaMask + Sepolia configuration
+        self.rpc_url = "https://rpc.sepolia.org"  # Public Sepolia RPC
         self.web3 = None
         
-        # Contract configuration (to be updated after deployment)
-        self.contract_address = "0x0000000000000000000000000000000000000000"  # Update after deployment
-        self.private_key = ""  # Replace with your private key
-        self.account_address = ""  # Replace with your account address
+        # Contract configuration (to be updated after deployment via Remix)
+        self.contract_address = ""
+        self.private_key = ""
+        self.account_address = ""
         
-        # Contract ABI (simplified version)
+        # Contract ABI (simplified version for Remix deployment)
         self.contract_abi = [
             {
                 "inputs": [
@@ -55,17 +55,6 @@ class BlockchainService:
                 ],
                 "stateMutability": "view",
                 "type": "function"
-            },
-            {
-                "anonymous": False,
-                "inputs": [
-                    {"indexed": True, "internalType": "string", "name": "voterName", "type": "string"},
-                    {"indexed": True, "internalType": "string", "name": "candidateId", "type": "string"},
-                    {"indexed": False, "internalType": "uint256", "name": "timestamp", "type": "uint256"},
-                    {"indexed": False, "internalType": "bytes32", "name": "txHash", "type": "bytes32"}
-                ],
-                "name": "VoteCast",
-                "type": "event"
             }
         ]
         
@@ -74,8 +63,7 @@ class BlockchainService:
     def _initialize_contract(self):
         """Initialize the smart contract instance"""
         try:
-            if (self.contract_address != "0x0000000000000000000000000000000000000000" and 
-                self.rpc_url and self.web3):
+            if self.contract_address and self.rpc_url and self.web3:
                 self.contract = self.web3.eth.contract(
                     address=self.contract_address,
                     abi=self.contract_abi
@@ -102,14 +90,14 @@ class BlockchainService:
             if not self.contract:
                 return {
                     "success": False,
-                    "message": "Blockchain contract not initialized",
+                    "message": "Blockchain contract not initialized - deploy contract via Remix first",
                     "tx_hash": None
                 }
             
             if not self.is_connected():
                 return {
                     "success": False,
-                    "message": "Not connected to Ethereum network",
+                    "message": "Not connected to Sepolia network via MetaMask",
                     "tx_hash": None
                 }
             
@@ -141,14 +129,14 @@ class BlockchainService:
             if tx_receipt.status == 1:
                 return {
                     "success": True,
-                    "message": "Vote cast successfully on blockchain",
+                    "message": "Vote cast successfully on Sepolia blockchain",
                     "tx_hash": tx_hash.hex(),
                     "block_number": tx_receipt.blockNumber
                 }
             else:
                 return {
                     "success": False,
-                    "message": "Transaction failed",
+                    "message": "Transaction failed on Sepolia",
                     "tx_hash": tx_hash.hex()
                 }
                 
@@ -175,7 +163,7 @@ class BlockchainService:
         """Get voting results from blockchain"""
         try:
             if not self.contract:
-                return {"success": False, "message": "Contract not initialized"}
+                return {"success": False, "message": "Contract not initialized - deploy via Remix first"}
             
             candidates, vote_counts = self.contract.functions.getResults().call()
             
