@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 class BlockchainService:
     def __init__(self):
         # Sepolia testnet configuration
-        self.rpc_url = "https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID"  # Replace with your Infura project ID
-        self.web3 = Web3(Web3.HTTPProvider(self.rpc_url))
+        self.rpc_url = "https://sepolia.infura.io/v3/"  # Will be updated via configuration
+        self.web3 = None
         
         # Contract configuration (to be updated after deployment)
         self.contract_address = "0x0000000000000000000000000000000000000000"  # Update after deployment
-        self.private_key = "YOUR_PRIVATE_KEY"  # Replace with your private key
-        self.account_address = "YOUR_ACCOUNT_ADDRESS"  # Replace with your account address
+        self.private_key = ""  # Replace with your private key
+        self.account_address = ""  # Replace with your account address
         
         # Contract ABI (simplified version)
         self.contract_abi = [
@@ -70,26 +70,28 @@ class BlockchainService:
         ]
         
         self.contract = None
-        self._initialize_contract()
     
     def _initialize_contract(self):
         """Initialize the smart contract instance"""
         try:
-            if self.contract_address != "0x0000000000000000000000000000000000000000":
+            if (self.contract_address != "0x0000000000000000000000000000000000000000" and 
+                self.rpc_url and self.web3):
                 self.contract = self.web3.eth.contract(
                     address=self.contract_address,
                     abi=self.contract_abi
                 )
                 logger.info("Blockchain contract initialized successfully")
             else:
-                logger.warning("Contract address not configured")
+                logger.warning("Contract address or RPC URL not configured")
         except Exception as e:
             logger.error(f"Failed to initialize contract: {str(e)}")
     
     def is_connected(self) -> bool:
         """Check if connected to Ethereum network"""
         try:
-            return self.web3.is_connected()
+            if self.web3:
+                return self.web3.is_connected()
+            return False
         except Exception as e:
             logger.error(f"Connection check failed: {str(e)}")
             return False

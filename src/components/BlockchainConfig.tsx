@@ -21,6 +21,7 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
   });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [useMetaMask, setUseMetaMask] = useState(true);
 
   useEffect(() => {
     loadBlockchainStatus();
@@ -32,6 +33,54 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
       setStatus(statusResult);
     } catch (error) {
       console.error('Failed to load blockchain status:', error);
+    }
+  };
+
+  const connectMetaMask = async () => {
+    try {
+      if (typeof window.ethereum !== 'undefined') {
+        // Request account access
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        // Switch to Sepolia network
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0xaa36a7' }], // Sepolia chainId
+          });
+        } catch (switchError: any) {
+          // If Sepolia is not added, add it
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia Test Network',
+                nativeCurrency: {
+                  name: 'SepoliaETH',
+                  symbol: 'ETH',
+                  decimals: 18
+                },
+                rpcUrls: ['https://sepolia.infura.io/v3/'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io']
+              }]
+            });
+          }
+        }
+        
+        setConfig(prev => ({
+          ...prev,
+          account_address: accounts[0],
+          rpc_url: 'https://sepolia.infura.io/v3/' // MetaMask handles RPC
+        }));
+        
+        alert('MetaMask connected successfully! Please enter your private key and contract address.');
+      } else {
+        alert('MetaMask is not installed. Please install MetaMask extension.');
+      }
+    } catch (error) {
+      console.error('Failed to connect MetaMask:', error);
+      alert('Failed to connect to MetaMask. Please try again.');
     }
   };
 
@@ -81,6 +130,21 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
           </div>
         </div>
 
+        {/* MetaMask Connection */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">MetaMask Integration</h3>
+          <p className="text-blue-700 mb-3">
+            Connect your MetaMask wallet to automatically configure Sepolia testnet settings.
+          </p>
+          <button
+            type="button"
+            onClick={connectMetaMask}
+            className="px-6 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+          >
+            Connect MetaMask
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -94,7 +158,7 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
               placeholder="0x..."
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Deploy your smart contract on Sepolia testnet and enter the address here</p>
+            <p className="text-xs text-gray-500 mt-1">Deploy your smart contract on Sepolia testnet using Remix IDE and enter the address here</p>
           </div>
 
           <div>
@@ -106,10 +170,13 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
               value={config.rpc_url}
               onChange={(e) => setConfig(prev => ({ ...prev, rpc_url: e.target.value }))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="https://sepolia.infura.io/v3/YOUR_PROJECT_ID"
+              placeholder="https://sepolia.infura.io/v3/ (MetaMask handles this)"
               required
+              disabled={useMetaMask}
             />
-            <p className="text-xs text-gray-500 mt-1">Infura or Alchemy RPC endpoint for Sepolia testnet</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {useMetaMask ? 'MetaMask will handle the RPC connection' : 'Sepolia testnet RPC endpoint'}
+            </p>
           </div>
 
           <div>
@@ -124,7 +191,7 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
               placeholder="Your wallet private key"
               required
             />
-            <p className="text-xs text-red-500 mt-1">⚠️ Keep this secure! Never share your private key</p>
+            <p className="text-xs text-red-500 mt-1">⚠️ Export from MetaMask: Account Details → Export Private Key</p>
           </div>
 
           <div>
@@ -139,16 +206,18 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
               placeholder="0x..."
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Your wallet address (should have Sepolia ETH for gas)</p>
+            <p className="text-xs text-gray-500 mt-1">Your MetaMask wallet address (should have Sepolia ETH for gas)</p>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="text-sm font-medium text-blue-900 mb-2">Setup Instructions:</h4>
             <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Deploy the smart contract on Sepolia testnet using Remix IDE</li>
-              <li>Get Sepolia ETH from a faucet for gas fees</li>
-              <li>Configure your Infura/Alchemy project for Sepolia</li>
-              <li>Enter your contract address and wallet details above</li>
+              <li>Install MetaMask browser extension</li>
+              <li>Switch to Sepolia testnet in MetaMask</li>
+              <li>Get Sepolia ETH from a faucet (sepolia-faucet.pk910.de)</li>
+              <li>Deploy the smart contract on Sepolia using Remix IDE</li>
+              <li>Connect MetaMask above to auto-fill wallet details</li>
+              <li>Enter your contract address and private key</li>
             </ol>
           </div>
 

@@ -1,86 +1,115 @@
 
-# Blockchain Integration Setup Guide
+# Blockchain Integration with MetaMask & Sepolia
 
-## Overview
-This guide will help you deploy the SecureVoting smart contract on Ethereum Sepolia testnet and configure the backend to interact with it.
+This directory contains the smart contract and documentation for integrating the voting system with Ethereum blockchain using MetaMask and Sepolia testnet.
 
 ## Prerequisites
-1. MetaMask wallet installed
-2. Sepolia ETH for gas fees (get from faucet)
-3. Infura or Alchemy account for RPC access
-4. Remix IDE access
 
-## Step 1: Get Sepolia ETH
-1. Visit a Sepolia faucet (e.g., https://sepoliafaucet.com/)
-2. Enter your wallet address
-3. Request test ETH
+1. **MetaMask Extension**: Install MetaMask browser extension
+2. **Sepolia Testnet**: Configure MetaMask to use Sepolia testnet
+3. **Test ETH**: Get Sepolia ETH from faucets for gas fees
+4. **Remix IDE**: Use Remix IDE for contract deployment
 
-## Step 2: Deploy Smart Contract
-1. Open Remix IDE (https://remix.ethereum.org/)
-2. Create a new file called `VotingContract.sol`
-3. Copy the contract code from `VotingContract.sol`
-4. Compile the contract (Solidity version 0.8.19+)
-5. Connect MetaMask to Sepolia network
-6. Deploy the contract with initial candidates array
+## Setup Instructions
 
-Example deployment parameters:
-```javascript
-["candidate1", "candidate2", "candidate3"]
-```
+### 1. Install MetaMask
+- Install MetaMask browser extension from metamask.io
+- Create a wallet or import existing one
+- Make note of your wallet address
 
-## Step 3: Configure Backend
-1. Update `backend/blockchain_service.py` with:
-   - Contract address from deployment
-   - Your Infura/Alchemy RPC URL
-   - Your wallet private key
-   - Your wallet address
+### 2. Configure Sepolia Testnet
+- Open MetaMask
+- Click on network dropdown (usually shows "Ethereum Mainnet")
+- Select "Sepolia test network"
+- If not available, add manually:
+  - Network Name: Sepolia Test Network
+  - RPC URL: https://sepolia.infura.io/v3/
+  - Chain ID: 11155111
+  - Currency Symbol: ETH
+  - Block Explorer: https://sepolia.etherscan.io
 
-## Step 4: Configure Frontend
-1. Use the admin panel to configure blockchain settings
-2. Enter the contract address and RPC details
-3. Test the connection
+### 3. Get Test ETH
+Get Sepolia ETH from these faucets:
+- https://sepolia-faucet.pk910.de/
+- https://sepoliafaucet.com/
+- https://faucets.chain.link/sepolia
 
-## Smart Contract Functions
+You'll need test ETH to deploy contracts and pay for transactions.
 
-### Main Functions
-- `castVote(string voterName, string candidateId)` - Cast a vote
-- `hasVoted(string voterName)` - Check if voter has voted
-- `getCandidateVotes(string candidateId)` - Get vote count for candidate
-- `getResults()` - Get all results
+### 4. Deploy Smart Contract
 
-### Admin Functions
-- `toggleVoting()` - Enable/disable voting
-- `addCandidate(string candidateId)` - Add new candidate
+1. Open Remix IDE (remix.ethereum.org)
+2. Create a new file and paste the VotingContract.sol code
+3. Compile the contract:
+   - Go to "Solidity Compiler" tab
+   - Select compiler version 0.8.19 or later
+   - Click "Compile VotingContract.sol"
+4. Deploy the contract:
+   - Go to "Deploy & Run Transactions" tab
+   - Set Environment to "Injected Provider - MetaMask"
+   - Make sure MetaMask is connected and on Sepolia
+   - Click "Deploy"
+   - Confirm transaction in MetaMask
+5. Copy the deployed contract address
 
-## Security Features
-- One vote per voter enforced by smart contract
-- Immutable vote storage
-- Event logging for transparency
-- Admin-only functions for election management
+### 5. Configure Backend
 
-## Testing
-1. Deploy contract on Sepolia
-2. Configure backend with contract details
-3. Register voters through face recognition
-4. Test voting process
-5. Verify votes on blockchain explorer
+1. In the admin panel, click "Configure Blockchain"
+2. Click "Connect MetaMask" to auto-fill wallet details
+3. Enter your contract address from step 4
+4. Export your private key from MetaMask:
+   - Click on account menu (3 dots)
+   - Select "Account Details"
+   - Click "Export Private Key"
+   - Enter MetaMask password
+   - Copy the private key (keep it secure!)
+5. Paste the private key in the configuration form
+6. Click "Configure Blockchain"
+
+## Smart Contract Features
+
+- **Vote Recording**: Stores voter name and candidate ID immutably
+- **Fraud Prevention**: Prevents duplicate voting per voter
+- **Transparency**: All votes are publicly verifiable on blockchain
+- **Security**: Uses cryptographic signatures for transaction integrity
+
+## Security Notes
+
+- Private keys are sensitive - never share them
+- Use only testnet for development/testing
+- For production, consider using hardware wallets or secure key management
+- Smart contracts are immutable once deployed - test thoroughly
+
+## Verification
+
+After deployment, you can verify your contract on Sepolia Etherscan:
+1. Go to sepolia.etherscan.io
+2. Search for your contract address
+3. View all transactions and contract interactions
+4. Verify voting transparency
 
 ## Troubleshooting
 
-### Common Issues
-1. **Gas estimation failed**: Ensure you have enough Sepolia ETH
-2. **Contract not found**: Verify contract address is correct
-3. **RPC connection failed**: Check Infura/Alchemy URL and API key
-4. **Transaction reverted**: Check if voting is active and voter hasn't voted
+**MetaMask Connection Issues:**
+- Ensure MetaMask is unlocked
+- Check you're on Sepolia testnet
+- Refresh the page and try again
 
-### Verification
-- Check transactions on Sepolia Etherscan
-- Verify vote counts match frontend display
-- Test duplicate voting prevention
+**Transaction Failures:**
+- Check you have sufficient Sepolia ETH
+- Increase gas limit if needed
+- Verify contract address is correct
 
-## Production Considerations
-- Use mainnet for real elections
-- Implement additional access controls
-- Consider gas optimization
-- Add comprehensive event logging
-- Implement emergency pause functionality
+**Contract Not Found:**
+- Verify deployment was successful
+- Check contract address is correct
+- Ensure you're on the right network (Sepolia)
+
+## Gas Costs
+
+Typical gas costs on Sepolia:
+- Contract deployment: ~500,000 gas
+- Vote casting: ~50,000 gas
+- Vote checking: ~21,000 gas (read-only)
+
+With current gas prices, each vote costs approximately 0.001 Sepolia ETH.
