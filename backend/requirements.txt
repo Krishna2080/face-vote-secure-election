@@ -9,3 +9,5 @@ pyttsx3==2.90
 pillow==10.1.0
 numpy==1.24.3
 python-multipart==0.0.6
+web3==6.15.1
+python-dotenv==1.0.0

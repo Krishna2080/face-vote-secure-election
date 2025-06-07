@@ -14,8 +14,9 @@ import base64
 import io
 from PIL import Image
 import json
+from blockchain_service import blockchain_service
 
-app = FastAPI(title="SecureVote Face Recognition API")
+app = FastAPI(title="SecureVote Face Recognition & Blockchain API")
 
 # Enable CORS for the frontend
 app.add_middleware(
@@ -26,7 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize models
+# ... keep existing code (detector, embedder, file paths, helper functions)
+
 detector = MTCNN()
 embedder = FaceNet()
 
@@ -61,6 +63,12 @@ class FaceAuthentication(BaseModel):
 class VoteRequest(BaseModel):
     voter_name: str
     candidate_id: str
+
+class BlockchainConfig(BaseModel):
+    contract_address: str
+    rpc_url: str
+    private_key: str
+    account_address: str
 
 def base64_to_opencv_image(base64_string):
     """Convert base64 string to OpenCV image"""
@@ -106,6 +114,8 @@ def check_face_duplicate(new_embedding, similarity_threshold=0.3):
         if similarity_score < similarity_threshold:
             return registered_name
     return None
+
+# ... keep existing code (register-voter and authenticate-voter endpoints)
 
 @app.post("/register-voter")
 async def register_voter(registration: VoterRegistration):
@@ -187,8 +197,13 @@ async def authenticate_voter(auth_request: FaceAuthentication):
         
         # If best match is found and similarity is high enough
         if best_match and best_score < 0.4:  # Threshold for matching
-            # Check if user has already voted
-            if best_match in voted_users:
+            # Check if user has already voted (local check)
+            local_voted = best_match in voted_users
+            
+            # Check if user has voted on blockchain
+            blockchain_voted = blockchain_service.has_voted_on_blockchain(best_match)
+            
+            if local_voted or blockchain_voted:
                 return {
                     "success": False,
                     "message": f"{best_match} has already voted",
@@ -216,15 +231,42 @@ async def authenticate_voter(auth_request: FaceAuthentication):
 
 @app.post("/cast-vote")
 async def cast_vote(vote_request: VoteRequest):
-    """Record a vote for the authenticated voter"""
+    """Record a vote both locally and on blockchain"""
     try:
-        # Check if user has already voted
+        # Check if user has already voted locally
         if vote_request.voter_name in voted_users:
-            raise HTTPException(status_code=400, detail="Voter has already cast their vote")
+            raise HTTPException(status_code=400, detail="Voter has already cast their vote locally")
         
-        # Record the vote
+        # Check if user has voted on blockchain
+        if blockchain_service.has_voted_on_blockchain(vote_request.voter_name):
+            raise HTTPException(status_code=400, detail="Voter has already voted on blockchain")
+        
+        # Cast vote on blockchain first
+        blockchain_result = blockchain_service.cast_vote_on_blockchain(
+            vote_request.voter_name, 
+            vote_request.candidate_id
+        )
+        
+        if not blockchain_result["success"]:
+            # If blockchain fails, still record locally but warn
+            with open("votes.txt", "a") as file:
+                file.write(f"{vote_request.voter_name}: {vote_request.candidate_id} (blockchain_failed)\n")
+            
+            # Mark user as voted locally
+            voted_users.add(vote_request.voter_name)
+            with open(voted_users_file, "wb") as file:
+                pickle.dump(voted_users, file)
+            
+            return {
+                "success": True,
+                "message": f"Vote recorded locally for {vote_request.voter_name}. Blockchain unavailable.",
+                "blockchain_result": blockchain_result,
+                "local_backup": True
+            }
+        
+        # Record the vote locally as backup
         with open("votes.txt", "a") as file:
-            file.write(f"{vote_request.voter_name}: {vote_request.candidate_id}\n")
+            file.write(f"{vote_request.voter_name}: {vote_request.candidate_id} (tx: {blockchain_result.get('tx_hash', 'unknown')})\n")
         
         # Mark user as voted
         voted_users.add(vote_request.voter_name)
@@ -233,11 +275,61 @@ async def cast_vote(vote_request: VoteRequest):
         
         return {
             "success": True,
-            "message": f"Vote recorded successfully for {vote_request.voter_name}"
+            "message": f"Vote recorded successfully for {vote_request.voter_name}",
+            "blockchain_result": blockchain_result,
+            "tx_hash": blockchain_result.get("tx_hash"),
+            "block_number": blockchain_result.get("block_number")
         }
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Vote recording failed: {str(e)}")
+
+@app.post("/configure-blockchain")
+async def configure_blockchain(config: BlockchainConfig):
+    """Configure blockchain connection parameters"""
+    try:
+        blockchain_service.contract_address = config.contract_address
+        blockchain_service.rpc_url = config.rpc_url
+        blockchain_service.private_key = config.private_key
+        blockchain_service.account_address = config.account_address
+        
+        # Reinitialize connection
+        blockchain_service.web3 = Web3(Web3.HTTPProvider(config.rpc_url))
+        blockchain_service._initialize_contract()
+        
+        return {
+            "success": True,
+            "message": "Blockchain configuration updated successfully",
+            "connected": blockchain_service.is_connected()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Configuration failed: {str(e)}")
+
+@app.get("/blockchain-status")
+async def get_blockchain_status():
+    """Get blockchain connection status"""
+    try:
+        return {
+            "connected": blockchain_service.is_connected(),
+            "contract_configured": blockchain_service.contract is not None,
+            "contract_address": blockchain_service.contract_address
+        }
+    except Exception as e:
+        return {
+            "connected": False,
+            "contract_configured": False,
+            "error": str(e)
+        }
+
+@app.get("/blockchain-results")
+async def get_blockchain_results():
+    """Get voting results from blockchain"""
+    try:
+        return blockchain_service.get_blockchain_results()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get blockchain results: {str(e)}")
+
+# ... keep existing code (health check and voter stats endpoints)
 
 @app.get("/health")
 async def health_check():

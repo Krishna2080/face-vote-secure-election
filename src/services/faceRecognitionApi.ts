@@ -20,6 +20,10 @@ export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data?: T;
+  blockchain_result?: any;
+  tx_hash?: string;
+  block_number?: number;
+  local_backup?: boolean;
 }
 
 export const faceRecognitionApi = {
