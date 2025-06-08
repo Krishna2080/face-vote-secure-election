@@ -1,142 +1,148 @@
 
-# Blockchain Integration with MetaMask & Sepolia
+# Blockchain Integration Guide
 
-This guide shows how to integrate the voting system with Ethereum blockchain using **only** MetaMask and Remix IDE.
+This guide will help you set up blockchain integration for SecureVote using MetaMask and Remix IDE with Sepolia testnet.
 
 ## Prerequisites
 
-1. **MetaMask Extension**: Install MetaMask browser extension
-2. **Sepolia Testnet**: Configure MetaMask to use Sepolia testnet
-3. **Test ETH**: Get Sepolia ETH from faucets for gas fees
-4. **Remix IDE**: Use Remix IDE for contract deployment
+1. **MetaMask Browser Extension**
+   - Install from [metamask.io](https://metamask.io)
+   - Create a wallet or import existing one
+
+2. **Sepolia Testnet ETH**
+   - Get free test ETH from [Sepolia Faucet](https://sepolia-faucet.pk910.de)
+   - You'll need ~0.01 ETH for deployment and transactions
 
 ## Step-by-Step Setup
 
-### 1. Install MetaMask
-- Go to metamask.io and install the browser extension
-- Create a new wallet or import existing one
-- **Important**: Save your seed phrase securely
+### 1. Configure MetaMask
 
-### 2. Configure Sepolia Testnet
-- Open MetaMask
-- Click on network dropdown (usually shows "Ethereum Mainnet")
-- Select "Sepolia test network"
-- If not available, add manually:
-  - Network Name: Sepolia Test Network
-  - RPC URL: https://rpc.sepolia.org
-  - Chain ID: 11155111
-  - Currency Symbol: ETH
-  - Block Explorer: https://sepolia.etherscan.io
+1. Open MetaMask extension
+2. Click on network dropdown (usually shows "Ethereum Mainnet")
+3. Select "Add Network" or "Custom RPC"
+4. Add Sepolia testnet with these details:
+   - **Network Name:** Sepolia Test Network
+   - **RPC URL:** https://rpc.sepolia.org
+   - **Chain ID:** 11155111
+   - **Currency Symbol:** ETH
+   - **Block Explorer:** https://sepolia.etherscan.io
 
-### 3. Get Test ETH
-Get Sepolia ETH from these faucets:
-- https://sepolia-faucet.pk910.de/ (Recommended)
-- https://sepoliafaucet.com/
-- https://faucets.chain.link/sepolia
+### 2. Get Testnet ETH
 
-You'll need test ETH to deploy contracts and pay for transactions.
+1. Visit [Sepolia Faucet](https://sepolia-faucet.pk910.de)
+2. Enter your MetaMask wallet address
+3. Request test ETH (usually 0.05 ETH per request)
+4. Wait for confirmation in MetaMask
 
-### 4. Deploy Smart Contract using Remix
+### 3. Deploy Smart Contract using Remix
 
-1. **Open Remix IDE**: Go to https://remix.ethereum.org
-2. **Create Contract**: Create a new file called `SecureVoting.sol`
-3. **Copy Contract Code**: Copy the contract code from `VotingContract.sol`
-4. **Compile Contract**:
-   - Go to "Solidity Compiler" tab
-   - Select compiler version 0.8.19 or later
-   - Click "Compile SecureVoting.sol"
-5. **Deploy Contract**:
-   - Go to "Deploy & Run Transactions" tab
-   - Set Environment to "Injected Provider - MetaMask"
-   - Make sure MetaMask is connected and on Sepolia
-   - In constructor, add candidate names: `["candidate1", "candidate2", "candidate3"]`
-   - Click "Deploy"
-   - Confirm transaction in MetaMask
-6. **Copy Contract Address**: After deployment, copy the contract address
+1. Open [Remix IDE](https://remix.ethereum.org)
+2. Create a new file called `SecureVoting.sol`
+3. Copy the contract code from `VotingContract.sol` in this directory
+4. Go to "Solidity Compiler" tab and compile the contract
+5. Go to "Deploy & Run Transactions" tab
+6. Select "Injected Provider - MetaMask" as environment
+7. Ensure MetaMask is connected to Sepolia testnet
+8. Deploy the contract with candidate names as constructor parameter
+   - Example: `["Alice Johnson", "Bob Smith", "Carol Williams"]`
+9. Copy the deployed contract address
 
-### 5. Configure Backend
+### 4. Configure SecureVote Application
 
-1. **Start Backend**: Run the Python backend with `python main.py`
-2. **Open Admin Panel**: Go to http://localhost:8080 and click "Admin Portal"
-3. **Configure Blockchain**:
-   - Click "Configure Blockchain"
-   - Click "Connect MetaMask" to auto-fill wallet details
-   - Enter your contract address from step 4
-   - Export your private key from MetaMask:
-     - Click on account menu (3 dots)
-     - Select "Account Details"
-     - Click "Export Private Key"
-     - Enter MetaMask password
-     - Copy the private key (keep it secure!)
-   - Paste the private key in the configuration form
-   - Click "Configure Blockchain"
+1. Go to Admin Panel in the SecureVote application
+2. Click "Configure Blockchain"
+3. Connect MetaMask when prompted
+4. Enter the deployed contract address
+5. Export your private key from MetaMask:
+   - Click on account menu → Account Details → Export Private Key
+   - Enter your MetaMask password
+   - Copy the private key
+6. Paste the private key in the configuration form
+7. Click "Configure Blockchain"
 
-### 6. Start Voting
+### 5. Test the Setup
 
-1. **Register Voters**: Use face recognition to register voters
-2. **Cast Votes**: Authenticated voters can cast votes
-3. **View Results**: Results are stored both locally and on blockchain
+1. Register a voter with face authentication
+2. Authenticate and cast a vote
+3. Check the transaction hash on [Sepolia Etherscan](https://sepolia.etherscan.io)
+4. Verify the vote was recorded on the blockchain
 
 ## Smart Contract Features
 
-- **Immutable Voting**: All votes are permanently recorded on Sepolia
-- **Fraud Prevention**: Each voter can only vote once
-- **Transparency**: All transactions are publicly viewable on Sepolia Etherscan
-- **Security**: Uses MetaMask's secure transaction signing
-
-## Verification & Transparency
-
-After deployment, verify your contract on Sepolia Etherscan:
-1. Go to https://sepolia.etherscan.io
-2. Search for your contract address
-3. View all transactions and contract interactions
-4. Verify voting transparency and immutability
+- **Fraud Prevention:** Each voter can only vote once
+- **Transparency:** All votes are publicly verifiable
+- **Immutability:** Votes cannot be changed or deleted
+- **Real-time Results:** Vote counts are updated instantly
 
 ## Troubleshooting
 
-**MetaMask Connection Issues:**
-- Ensure MetaMask is unlocked
-- Check you're on Sepolia testnet
-- Refresh the page and try again
+### Common Issues
 
-**Transaction Failures:**
-- Check you have sufficient Sepolia ETH
-- Increase gas limit if needed
-- Verify contract address is correct
+1. **"Insufficient funds" error**
+   - Get more test ETH from the faucet
+   - Ensure you're on Sepolia testnet, not mainnet
 
-**Backend Connection:**
-- Ensure Python backend is running on localhost:8000
-- Check frontend is running on localhost:8080
-- Verify no firewall is blocking connections
+2. **"Transaction failed" error**
+   - Check gas limit (should be around 300,000)
+   - Ensure contract address is correct
+   - Verify you're on Sepolia testnet
 
-**Contract Deployment Issues:**
-- Make sure you're connected to Sepolia in Remix
-- Check you have enough Sepolia ETH for gas
-- Verify contract compiles without errors
+3. **"Contract not found" error**
+   - Double-check the contract address
+   - Ensure the contract was deployed successfully
+   - Verify you're using the correct network
 
-## Gas Costs
+4. **MetaMask connection issues**
+   - Refresh the page and try again
+   - Check if MetaMask is unlocked
+   - Switch to Sepolia testnet in MetaMask
 
-Typical gas costs on Sepolia:
-- Contract deployment: ~500,000-1,000,000 gas
-- Vote casting: ~50,000-80,000 gas
-- Vote checking: ~21,000 gas (read-only)
+### Verification Steps
 
-With current gas prices, each vote costs approximately 0.001-0.002 Sepolia ETH.
+1. **Check transaction on Etherscan:**
+   ```
+   https://sepolia.etherscan.io/tx/[YOUR_TX_HASH]
+   ```
+
+2. **Verify contract on Etherscan:**
+   ```
+   https://sepolia.etherscan.io/address/[YOUR_CONTRACT_ADDRESS]
+   ```
+
+3. **Check wallet balance:**
+   - Open MetaMask
+   - Ensure you're on Sepolia testnet
+   - Check ETH balance
 
 ## Security Notes
 
-- **Private Keys**: Never share your private key
-- **Testnet Only**: This setup is for Sepolia testnet only
-- **Production**: For mainnet, use hardware wallets or secure key management
-- **Contract Immutability**: Smart contracts cannot be modified once deployed
+- **Never use mainnet:** This is for testing only, use Sepolia testnet
+- **Keep private keys secure:** Don't share your private key
+- **Test thoroughly:** Verify all functionality before production use
+- **Backup wallet:** Keep your MetaMask seed phrase safe
 
-## Architecture
+## Support
 
-```
-Frontend (React) ↔ Backend (Python) ↔ Blockchain (Sepolia)
-     ↓                    ↓                    ↓
-  Face Auth         Local Storage      Smart Contract
-  MetaMask         Vote Backup         Immutable Votes
-```
+If you encounter issues:
+1. Check the browser console for error messages
+2. Verify all configuration steps
+3. Ensure backend is running on `http://localhost:8000`
+4. Check MetaMask is connected to Sepolia testnet
 
-This ensures votes are recorded both locally (for speed) and on blockchain (for immutability).
+## Contract Deployment Example
+
+Here's an example of how to deploy using Remix:
+
+1. Constructor parameters for 3 candidates:
+   ```
+   ["Alice Johnson", "Bob Smith", "Carol Williams"]
+   ```
+
+2. After deployment, you'll get an address like:
+   ```
+   0x1234567890123456789012345678901234567890
+   ```
+
+3. Use this address in the SecureVote configuration.
+
+Now your SecureVote application will generate real blockchain transactions on Sepolia testnet!

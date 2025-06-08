@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { blockchainApi } from '../services/blockchainApi';
 
@@ -118,17 +117,26 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
     setIsLoading(true);
 
     try {
-      const result = await blockchainApi.configureBlockchain(config);
+      const response = await fetch('http://localhost:8000/configure-blockchain', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic ' + btoa('admin:securevote123')
+        },
+        body: JSON.stringify(config)
+      });
+      
+      const result = await response.json();
       
       if (result.success) {
-        alert('Blockchain configured successfully!');
+        alert('Blockchain configured successfully! Real transactions will now be generated on Sepolia testnet.');
         await loadBlockchainStatus();
         onConfigured();
       } else {
         alert(`Configuration failed: ${result.message}`);
       }
     } catch (error) {
-      alert('Failed to configure blockchain. Please check your settings.');
+      alert('Failed to configure blockchain. Please check your settings and ensure backend is running.');
     } finally {
       setIsLoading(false);
     }
@@ -174,7 +182,7 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
               <span className="text-sm">Smart Contract: {status.contract_configured ? 'Configured' : 'Not Configured'}</span>
             </div>
             {status.contract_address && (
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600 break-all">
                 Contract: {status.contract_address}
               </div>
             )}
@@ -183,21 +191,21 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
 
         {/* Setup Instructions */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">Setup Instructions</h3>
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">Quick Setup Guide</h3>
           <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside">
-            <li>Install MetaMask browser extension from metamask.io</li>
+            <li>Install MetaMask browser extension</li>
             <li>Switch to Sepolia testnet in MetaMask</li>
-            <li>Get Sepolia ETH from faucet: sepolia-faucet.pk910.de</li>
-            <li>Open Remix IDE (remix.ethereum.org)</li>
+            <li>Get free Sepolia ETH from: <a href="https://sepolia-faucet.pk910.de" target="_blank" rel="noopener noreferrer" className="underline">sepolia-faucet.pk910.de</a></li>
+            <li>Open Remix IDE: <a href="https://remix.ethereum.org" target="_blank" rel="noopener noreferrer" className="underline">remix.ethereum.org</a></li>
             <li>Deploy the SecureVoting contract on Sepolia</li>
             <li>Copy the deployed contract address</li>
-            <li>Connect MetaMask below and configure</li>
+            <li>Configure below with your contract address and private key</li>
           </ol>
         </div>
 
         {/* MetaMask Connection */}
         <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-orange-900 mb-3">MetaMask Connection</h3>
+          <h3 className="text-lg font-semibold text-orange-900 mb-3">Step 1: Connect MetaMask</h3>
           <p className="text-orange-700 mb-3">
             Connect your MetaMask wallet to automatically configure Sepolia testnet settings.
           </p>
@@ -214,7 +222,7 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Smart Contract Address *
+              Step 2: Smart Contract Address *
             </label>
             <input
               type="text"
@@ -229,7 +237,7 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Private Key *
+              Step 3: Private Key *
             </label>
             <input
               type="password"
@@ -244,7 +252,7 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Account Address
+              Account Address (Auto-filled)
             </label>
             <input
               type="text"
@@ -257,12 +265,20 @@ const BlockchainConfig = ({ onConfigured }: BlockchainConfigProps) => {
             <p className="text-xs text-gray-500 mt-1">Automatically filled when MetaMask is connected</p>
           </div>
 
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="text-green-900 font-medium mb-2">✅ Real Blockchain Transactions</h4>
+            <p className="text-green-700 text-sm">
+              Once configured, all votes will be recorded as real transactions on Sepolia testnet. 
+              You can verify them on <a href="https://sepolia.etherscan.io" target="_blank" rel="noopener noreferrer" className="underline">sepolia.etherscan.io</a>
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={isLoading || metaMaskStatus !== 'connected'}
             className="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? 'Configuring...' : 'Configure Blockchain'}
+            {isLoading ? 'Configuring...' : 'Configure Blockchain & Enable Real Transactions'}
           </button>
         </form>
       </div>
