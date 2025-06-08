@@ -8,6 +8,7 @@ interface Candidate {
 }
 
 interface Voter {
+  id: string;
   name: string;
   email: string;
   faceEmbedding: number[];
@@ -29,10 +30,18 @@ interface VotingContextType {
   removeCandidate: (id: string) => void;
   addVoter: (voter: Voter) => void;
   removeVoter: (name: string) => void;
-  castVote: (candidateId: string) => void;
+  castVote: (candidateId: string) => boolean;
   setCurrentVoter: (voter: Voter | null) => void;
   clearAllData: () => void;
   setElectionName: (name: string) => void;
+  getResults: () => Array<{
+    id: string;
+    name: string;
+    party: string;
+    votes: number;
+    percentage: number;
+  }>;
+  getTotalVotes: () => number;
 }
 
 const VotingContext = createContext<VotingContextType | undefined>(undefined);
@@ -102,8 +111,8 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setVotes(prev => prev.filter(vote => vote.voterName !== name));
   };
 
-  const castVote = (candidateId: string) => {
-    if (!currentVoter) return;
+  const castVote = (candidateId: string): boolean => {
+    if (!currentVoter) return false;
 
     const vote: Vote = {
       voterName: currentVoter.name,
@@ -112,6 +121,28 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setVotes(prev => [...prev, vote]);
+    return true;
+  };
+
+  const getResults = () => {
+    const totalVotes = votes.length;
+    
+    return candidates.map(candidate => {
+      const candidateVotes = votes.filter(vote => vote.candidateId === candidate.id).length;
+      const percentage = totalVotes > 0 ? (candidateVotes / totalVotes) * 100 : 0;
+      
+      return {
+        id: candidate.id,
+        name: candidate.name,
+        party: candidate.party,
+        votes: candidateVotes,
+        percentage
+      };
+    });
+  };
+
+  const getTotalVotes = () => {
+    return votes.length;
   };
 
   const clearAllData = () => {
@@ -141,7 +172,9 @@ export const VotingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         castVote,
         setCurrentVoter,
         clearAllData,
-        setElectionName: updateElectionName
+        setElectionName: updateElectionName,
+        getResults,
+        getTotalVotes
       }}
     >
       {children}
