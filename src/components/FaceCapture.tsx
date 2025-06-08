@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { faceRecognitionApi } from '../services/faceRecognitionApi';
 
@@ -39,7 +40,12 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
   const initializeCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' }
+        video: { 
+          width: { ideal: 480 }, 
+          height: { ideal: 360 }, 
+          facingMode: 'user',
+          frameRate: { ideal: 15 }
+        }
       });
       
       setStream(mediaStream);
@@ -65,15 +71,17 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
     
     if (!context) return null;
     
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Use smaller dimensions for faster processing
+    const width = 320;
+    const height = 240;
+    canvas.width = width;
+    canvas.height = height;
     
-    // Draw current video frame to canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Draw current video frame to canvas with reduced size
+    context.drawImage(video, 0, 0, width, height);
     
-    // Get base64 image data
-    return canvas.toDataURL('image/jpeg', 0.8);
+    // Use lower quality for faster upload and processing
+    return canvas.toDataURL('image/jpeg', 0.6);
   };
 
   const captureAndProcess = async () => {
@@ -84,13 +92,13 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
 
     setIsProcessing(true);
     
-    if (mode === 'register') {
-      setStatus('Processing registration with fraud prevention checks...');
-    } else {
-      setStatus('Processing authentication...');
-    }
-    
     try {
+      if (mode === 'register') {
+        setStatus('Processing registration (10-15 seconds)...');
+      } else {
+        setStatus('Authenticating face (5-10 seconds)...');
+      }
+      
       const imageData = captureImageAsBase64();
       
       if (!imageData) {
@@ -98,6 +106,7 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
       }
 
       let result;
+      const startTime = Date.now();
       
       if (mode === 'register' && voterData) {
         result = await faceRecognitionApi.registerVoter({
@@ -111,29 +120,35 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
         });
       }
 
+      const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`Face ${mode} completed in ${processingTime} seconds`);
+
       if (result?.success) {
         if (mode === 'register') {
-          setStatus('Registration successful with fraud prevention verification!');
+          setStatus(`Registration successful! (${processingTime}s)`);
         } else {
-          setStatus('Authentication successful!');
+          setStatus(`Authentication successful! (${processingTime}s)`);
         }
         onCapture(result);
       } else {
         const errorMessage = result?.message || `${mode === 'register' ? 'Registration' : 'Authentication'} failed`;
         setStatus(errorMessage);
         
-        // Keep error message visible longer for fraud prevention alerts
         if (errorMessage.includes('already registered under the name')) {
-          setTimeout(() => setStatus('Ready to try again'), 5000);
+          setTimeout(() => setStatus('Ready to try again'), 4000);
         } else {
-          setTimeout(() => setStatus('Ready to try again'), 3000);
+          setTimeout(() => setStatus('Ready to try again'), 2000);
         }
       }
       
     } catch (error) {
       console.error(`Error during ${mode}:`, error);
-      setStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setTimeout(() => setStatus('Ready to try again'), 3000);
+      if (error instanceof Error && error.message.includes('fetch')) {
+        setStatus('Network timeout - Backend may be slow. Try again.');
+      } else {
+        setStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      setTimeout(() => setStatus('Ready to try again'), 2000);
     } finally {
       setIsProcessing(false);
     }
@@ -186,7 +201,7 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
                 {isProcessing ? 'Processing...' : 
-                 mode === 'register' ? 'Capture & Verify' : 'Authenticate'
+                 mode === 'register' ? 'Capture & Verify' : 'Quick Authenticate'
                 }
               </button>
               <button
@@ -203,7 +218,7 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
         <div className="space-y-6">
           <div>
             <h4 className="text-lg font-medium text-gray-900 mb-3">
-              {mode === 'register' ? 'Biometric Registration' : 'Face Authentication'} Instructions
+              {mode === 'register' ? 'Fast Biometric Registration' : 'Quick Face Authentication'}
             </h4>
             <ul className="space-y-2 text-sm text-gray-600">
               <li className="flex items-start">
@@ -220,9 +235,23 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
               </li>
               <li className="flex items-start">
                 <span className="flex-shrink-0 w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
-                <span>Click the capture button when ready</span>
+                <span>Click capture for {mode === 'register' ? '10-15s' : '5-10s'} processing</span>
               </li>
             </ul>
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex">
+              <svg className="w-5 h-5 text-green-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.293l-3-3a1 1 0 00-1.414 1.414L10.586 9.5 8.707 7.621a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <h5 className="text-sm font-medium text-green-900">Optimized Performance</h5>
+                <p className="text-sm text-green-700 mt-1">
+                  Reduced image processing for faster {mode === 'register' ? 'registration (10-15 seconds)' : 'authentication (5-10 seconds)'}.
+                </p>
+              </div>
+            </div>
           </div>
           
           {mode === 'register' && (
@@ -234,22 +263,22 @@ const FaceCapture = ({ onCapture, onCancel, mode, voterData }: FaceCaptureProps)
                 <div>
                   <h5 className="text-sm font-medium text-red-900">Fraud Prevention Active</h5>
                   <p className="text-sm text-red-700 mt-1">
-                    System will check if your face is already registered under a different name. Each person can only register once.
+                    System will check if your face is already registered. Each person can only register once.
                   </p>
                 </div>
               </div>
             </div>
           )}
-          
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex">
               <svg className="w-5 h-5 text-blue-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
               <div>
-                <h5 className="text-sm font-medium text-blue-900">Enhanced Security</h5>
+                <h5 className="text-sm font-medium text-blue-900">Fast & Secure</h5>
                 <p className="text-sm text-blue-700 mt-1">
-                  Using MTCNN face detection and FaceNet embeddings for high-accuracy biometric authentication with fraud prevention.
+                  MTCNN + FaceNet technology optimized for speed while maintaining high accuracy.
                 </p>
               </div>
             </div>
