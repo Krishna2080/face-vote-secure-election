@@ -19,6 +19,7 @@ const VoterRegistration = ({ onRegistrationComplete }: VoterRegistrationProps) =
     if (result.success && formData.name && formData.email) {
       // Add voter to local context with the embedding from backend
       addVoter({
+        id: `voter_${Date.now()}`, // Generate unique ID
         name: formData.name,
         email: formData.email,
         faceEmbedding: result.embedding || []

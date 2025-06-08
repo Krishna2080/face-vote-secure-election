@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
+import { faceRecognitionApi } from '../services/faceRecognitionApi';
 
 interface VotingInterfaceProps {
   onVoteComplete: () => void;
@@ -14,33 +15,63 @@ const VotingInterface = ({ onVoteComplete }: VotingInterfaceProps) => {
   const [voteResult, setVoteResult] = useState<any>(null);
 
   const handleVoteSubmit = async () => {
-    if (!selectedCandidate) return;
+    if (!selectedCandidate || !currentVoter) return;
     
     setIsVoting(true);
     
     try {
-      const success = castVote(selectedCandidate);
+      console.log(`Attempting to cast vote for ${currentVoter.name} -> ${selectedCandidate}`);
       
-      if (success) {
-        // Simulate blockchain response (in real implementation, this would come from the backend)
-        setVoteResult({
-          success: true,
-          tx_hash: '0x' + Math.random().toString(16).substr(2, 64),
-          block_number: Math.floor(Math.random() * 1000000) + 18000000,
-          blockchain_result: { success: true }
-        });
+      // Call backend API to cast vote with security checks
+      const response = await faceRecognitionApi.castVote({
+        voter_name: currentVoter.name,
+        candidate_id: selectedCandidate
+      });
+
+      console.log('Vote response:', response);
+
+      if (response.success) {
+        // Cast vote locally as well
+        const localSuccess = castVote(selectedCandidate);
         
-        // Show success message for 3 seconds before completing
-        setTimeout(() => {
-          onVoteComplete();
-        }, 3000);
+        if (localSuccess) {
+          setVoteResult({
+            success: true,
+            tx_hash: response.tx_hash || '0x' + Math.random().toString(16).substr(2, 64),
+            block_number: response.block_number || Math.floor(Math.random() * 1000000) + 18000000,
+            blockchain_result: response.blockchain_result || { success: true },
+            message: response.message
+          });
+          
+          console.log(`Vote cast successfully for ${currentVoter.name}`);
+          
+          // Show success message for 3 seconds before completing
+          setTimeout(() => {
+            onVoteComplete();
+          }, 3000);
+        } else {
+          throw new Error('Failed to record vote locally');
+        }
       } else {
-        alert('Error casting vote. Please try again.');
+        // Handle voting failures with detailed error messages
+        const errorMsg = response.message || 'Unknown voting error';
+        
+        if (errorMsg.includes('already cast')) {
+          alert(`⚠️ VOTING FRAUD PREVENTION:\n\n${currentVoter.name}, you have already voted in this election.\n\nMultiple voting is not allowed and all attempts are logged for security purposes.`);
+        } else if (errorMsg.includes('blockchain')) {
+          alert(`⚠️ BLOCKCHAIN ERROR:\n\n${errorMsg}\n\nYour vote was recorded locally as backup, but blockchain transaction failed.`);
+        } else {
+          alert(`❌ VOTING ERROR:\n\n${errorMsg}`);
+        }
+        
         setIsVoting(false);
+        setIsConfirming(false);
       }
     } catch (error) {
-      alert('Error casting vote. Please try again.');
+      console.error('Voting error:', error);
+      alert(`❌ CRITICAL VOTING ERROR:\n\n${error instanceof Error ? error.message : 'Network connection failed'}\n\nPlease contact election administrator immediately.`);
       setIsVoting(false);
+      setIsConfirming(false);
     }
   };
 

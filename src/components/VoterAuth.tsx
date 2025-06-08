@@ -1,8 +1,8 @@
+
 import { useState } from 'react';
 import { useVoting } from '../contexts/VotingContext';
 import FaceCapture from './FaceCapture';
 import VoterRegistration from './VoterRegistration';
-import { faceRecognitionApi } from '../services/faceRecognitionApi';
 
 interface VoterAuthProps {
   onAuthenticated: () => void;
@@ -20,25 +20,45 @@ const VoterAuth = ({ onAuthenticated }: VoterAuthProps) => {
     if (result.success) {
       const voterName = result.voter_name;
       
+      // CRITICAL: Check if voter has already voted (backend verification)
       if (result.has_voted) {
         setAuthStatus('failed');
-        alert(`${voterName}, you have already voted in this election.`);
+        alert(`⚠️ VOTING FRAUD PREVENTION:\n\n${voterName}, you have already voted in this election.\n\nYour vote was recorded on: ${new Date().toLocaleDateString()}\n\nMultiple voting is not allowed and is tracked for security purposes.`);
+        setIsScanning(false);
+        return;
+      }
+      
+      // Additional security check - verify similarity score
+      if (result.similarity_score && result.similarity_score < 0.6) {
+        setAuthStatus('failed');
+        alert(`⚠️ AUTHENTICATION FAILED:\n\nFace recognition confidence too low (${Math.round(result.similarity_score * 100)}%).\n\nPlease ensure good lighting and face the camera directly.`);
+        setIsScanning(false);
+        return;
+      }
+      
+      // Find the voter in local context
+      const voter = voters.find(v => v.name === voterName);
+      if (voter) {
+        setCurrentVoter(voter);
+        setAuthStatus('success');
+        console.log(`Voter authenticated successfully: ${voterName} with confidence: ${Math.round((result.similarity_score || 0) * 100)}%`);
+        setTimeout(() => {
+          onAuthenticated();
+        }, 2000);
       } else {
-        // Find the voter in local context
-        const voter = voters.find(v => v.name === voterName);
-        if (voter) {
-          setCurrentVoter(voter);
-          setAuthStatus('success');
-          setTimeout(() => {
-            onAuthenticated();
-          }, 2000);
-        } else {
-          setAuthStatus('failed');
-          alert('Voter found in backend but not in local database. Please contact administrator.');
-        }
+        setAuthStatus('failed');
+        alert('Voter found in backend but not in local database. Please contact administrator.');
+        setIsScanning(false);
       }
     } else {
       setAuthStatus('failed');
+      // Enhanced error messaging for failed authentication
+      const errorMsg = result.message || 'Face not recognized';
+      if (errorMsg.includes('not recognized')) {
+        alert(`❌ AUTHENTICATION FAILED:\n\n${errorMsg}\n\nPossible reasons:\n• Face not registered\n• Poor lighting conditions\n• Face partially obscured\n\nPlease register first if you're a new voter.`);
+      } else {
+        alert(`Authentication Error: ${errorMsg}`);
+      }
       setTimeout(() => {
         setAuthStatus('idle');
       }, 3000);

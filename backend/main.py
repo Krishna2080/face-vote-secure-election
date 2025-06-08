@@ -1,4 +1,3 @@
-
 import cv2
 import os
 import numpy as np
@@ -16,6 +15,7 @@ from scipy.spatial.distance import cosine
 from web3 import Web3
 import secrets
 import logging
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -65,12 +65,13 @@ face_data_dir = "face_embeddings"
 if not os.path.exists(face_data_dir):
     os.makedirs(face_data_dir)
 
+# Load voted users with timestamps for security tracking
 voted_users_file = "voted_users.pkl"
 if os.path.exists(voted_users_file):
     with open(voted_users_file, "rb") as file:
         voted_users = pickle.load(file)
 else:
-    voted_users = set()
+    voted_users = {}  # Changed to dict to store timestamps: {voter_name: timestamp}
 
 # Create registry file to track face-to-name mappings for fraud prevention
 face_registry_file = "face_registry.pkl"
@@ -298,7 +299,7 @@ async def register_voter(registration: VoterRegistration):
 
 @app.post("/authenticate-voter")
 async def authenticate_voter(auth_request: FaceAuthentication):
-    """Authenticate voter using face recognition"""
+    """Authenticate voter using face recognition with enhanced security"""
     try:
         # Convert base64 image to OpenCV format
         image = base64_to_opencv_image(auth_request.image_data)
@@ -307,7 +308,8 @@ async def authenticate_voter(auth_request: FaceAuthentication):
         test_embedding = extract_face_embedding(image)
         
         if test_embedding is None:
-            raise HTTPException(status_code=400, detail="No face detected in the image")
+            logger.warning("No face detected in authentication attempt")
+            raise HTTPException(status_code=400, detail="No face detected in the image. Please ensure your face is clearly visible and well-lit.")
         
         # Load all stored embeddings
         user_embeddings = {}
@@ -328,102 +330,162 @@ async def authenticate_voter(auth_request: FaceAuthentication):
                     best_score = score
                     best_match = user
         
-        # If best match is found and similarity is high enough
-        if best_match and best_score < 0.4:  # Threshold for matching
-            # Check if user has already voted
-            if best_match in voted_users:
+        # Enhanced security: stricter threshold and more detailed logging
+        similarity_threshold = 0.35  # Stricter threshold for better security
+        
+        if best_match and best_score < similarity_threshold:
+            similarity_percentage = 1 - best_score
+            
+            # CRITICAL SECURITY CHECK: Has this voter already voted?
+            has_voted = best_match in voted_users
+            
+            if has_voted:
+                vote_timestamp = voted_users.get(best_match, 'Unknown time')
+                logger.warning(f"VOTING FRAUD ATTEMPT: {best_match} tried to vote again. Original vote: {vote_timestamp}")
                 return {
                     "success": False,
-                    "message": f"{best_match} has already voted",
+                    "message": f"{best_match} has already voted on {vote_timestamp}",
                     "voter_name": best_match,
-                    "has_voted": True
+                    "has_voted": True,
+                    "similarity_score": similarity_percentage,
+                    "fraud_attempt": True
                 }
             
+            logger.info(f"Voter authenticated: {best_match} (confidence: {similarity_percentage:.2%})")
             return {
                 "success": True,
                 "message": f"Voter authenticated as {best_match}",
                 "voter_name": best_match,
                 "has_voted": False,
-                "similarity_score": 1 - best_score  # Convert to similarity percentage
+                "similarity_score": similarity_percentage
             }
         else:
+            logger.warning(f"Authentication failed: best match {best_match} with score {best_score} (threshold: {similarity_threshold})")
             return {
                 "success": False,
-                "message": "Face not recognized. Please ensure you are registered to vote.",
+                "message": "Face not recognized. Please ensure you are registered to vote and your face is clearly visible.",
                 "voter_name": None,
-                "has_voted": False
+                "has_voted": False,
+                "similarity_score": 0 if not best_match else (1 - best_score)
             }
     
     except Exception as e:
+        logger.error(f"Authentication error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
 
 @app.post("/cast-vote")
 async def cast_vote(vote_request: VoteRequest):
-    """Record a vote both locally and on blockchain"""
+    """Record a vote with enhanced security checks"""
     try:
-        # Check if user has already voted
+        # CRITICAL SECURITY CHECK: Prevent multiple voting
         if vote_request.voter_name in voted_users:
-            raise HTTPException(status_code=400, detail="Voter has already cast their vote")
+            vote_timestamp = voted_users[vote_request.voter_name]
+            logger.warning(f"FRAUD ATTEMPT: {vote_request.voter_name} tried to vote multiple times")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"SECURITY VIOLATION: {vote_request.voter_name} has already cast their vote on {vote_timestamp}. Multiple voting is not allowed."
+            )
+        
+        # Verify voter is registered
+        if vote_request.voter_name not in face_registry:
+            logger.warning(f"Unregistered voter attempted to vote: {vote_request.voter_name}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Voter {vote_request.voter_name} is not registered. Please register first."
+            )
+        
+        # Record vote timestamp for security tracking
+        vote_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Try to cast vote on blockchain first
         blockchain_result = blockchain_service.cast_vote(vote_request.voter_name, vote_request.candidate_id)
         
-        # Record the vote locally (as backup)
+        # Record the vote locally (as backup) with detailed logging
         with open("votes.txt", "a") as file:
             tx_info = f"tx: {blockchain_result.get('tx_hash', 'failed')}"
-            file.write(f"{vote_request.voter_name}: {vote_request.candidate_id} ({tx_info})\n")
+            file.write(f"{vote_timestamp} - {vote_request.voter_name}: {vote_request.candidate_id} ({tx_info})\n")
         
-        # Mark user as voted
-        voted_users.add(vote_request.voter_name)
+        # Mark user as voted with timestamp
+        voted_users[vote_request.voter_name] = vote_timestamp
         with open(voted_users_file, "wb") as file:
             pickle.dump(voted_users, file)
+        
+        logger.info(f"Vote recorded: {vote_request.voter_name} -> {vote_request.candidate_id} at {vote_timestamp}")
         
         if blockchain_result["success"]:
             return {
                 "success": True,
-                "message": f"Vote recorded successfully for {vote_request.voter_name}",
+                "message": f"Vote recorded successfully for {vote_request.voter_name} on blockchain",
                 "blockchain_result": blockchain_result,
                 "tx_hash": blockchain_result.get("tx_hash"),
-                "block_number": blockchain_result.get("block_number")
+                "block_number": blockchain_result.get("block_number"),
+                "timestamp": vote_timestamp
             }
         else:
             return {
                 "success": True,
                 "message": f"Vote recorded locally for {vote_request.voter_name}. Blockchain: {blockchain_result['message']}",
                 "blockchain_result": blockchain_result,
-                "local_backup": True
+                "local_backup": True,
+                "timestamp": vote_timestamp
             }
     
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Vote recording error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Vote recording failed: {str(e)}")
 
 @app.delete("/delete-voter/{voter_name}")
 async def delete_voter(voter_name: str, admin: str = Depends(get_admin_user)):
-    """Delete a registered voter (Admin only)"""
+    """Delete a registered voter with comprehensive cleanup (Admin only)"""
     try:
+        deleted_items = []
+        
         # Remove from face registry
         if voter_name in face_registry:
             del face_registry[voter_name]
             with open(face_registry_file, "wb") as file:
                 pickle.dump(face_registry, file)
+            deleted_items.append("face_registry")
         
         # Remove face embedding file
         user_face_file = os.path.join(face_data_dir, f"{voter_name}.pkl")
         if os.path.exists(user_face_file):
             os.remove(user_face_file)
+            deleted_items.append("face_embedding_file")
         
         # Remove from voted users if present
         if voter_name in voted_users:
-            voted_users.remove(voter_name)
+            del voted_users[voter_name]
             with open(voted_users_file, "wb") as file:
                 pickle.dump(voted_users, file)
+            deleted_items.append("vote_record")
+        
+        # Remove from votes.txt file
+        if os.path.exists("votes.txt"):
+            with open("votes.txt", "r") as file:
+                lines = file.readlines()
+            
+            # Filter out lines containing the voter name
+            filtered_lines = [line for line in lines if not f"- {voter_name}:" in line]
+            
+            with open("votes.txt", "w") as file:
+                file.writelines(filtered_lines)
+            
+            if len(filtered_lines) < len(lines):
+                deleted_items.append("vote_log")
+        
+        logger.info(f"Admin deleted voter: {voter_name} (removed: {', '.join(deleted_items)})")
         
         return {
             "success": True,
-            "message": f"Voter {voter_name} deleted successfully"
+            "message": f"Voter {voter_name} deleted successfully",
+            "deleted_items": deleted_items
         }
     
     except Exception as e:
+        logger.error(f"Delete voter error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete voter: {str(e)}")
 
 @app.post("/configure-blockchain")
